@@ -23,16 +23,16 @@ export function Navbar() {
               className="flex items-center gap-2"
               onClick={() => navigate("/meetings")}
             >
-              <ClipboardList size={18} />
-              <span>Reuniões</span>
+              <Users size={18} />
+              <span>Usuários</span>
             </Button>
             <Button
               variant="ghost"
               className="flex items-center gap-2"
               onClick={() => navigate("/action-plans")}
             >
-              <Users size={18} />
-              <span>Planos de Ação</span>
+              <ClipboardList size={18} />
+              <span>Importação</span>
             </Button>
           </div>
         </div>
