@@ -102,6 +102,16 @@ const StatusPopover = ({ status, onChange }: {
   );
 };
 
+const formatDateTime = (dateTime: string) => {
+  const date = new Date(dateTime);
+  return `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear().toString().slice(2)} ${date.getHours().toString().padStart(2, '0')}h${date.getMinutes().toString().padStart(2, '0')}`;
+};
+
+const formatDate = (date: string) => {
+  const d = new Date(date);
+  return `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear().toString().slice(2)}`;
+};
+
 type SortConfig = {
   key: keyof ActionPlan | null;
   direction: "asc" | "desc" | null;
@@ -378,7 +388,7 @@ const Index = () => {
                         autoFocus
                       />
                     ) : (
-                      plan.dateTime
+                      formatDateTime(plan.dateTime)
                     )}
                   </td>
                   <td
@@ -458,7 +468,7 @@ const Index = () => {
                         autoFocus
                       />
                     ) : (
-                      plan.startDate
+                      formatDate(plan.startDate)
                     )}
                   </td>
                   <td
@@ -478,7 +488,7 @@ const Index = () => {
                         autoFocus
                       />
                     ) : (
-                      plan.endDate
+                      formatDate(plan.endDate)
                     )}
                   </td>
                   <td
