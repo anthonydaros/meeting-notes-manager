@@ -15,7 +15,7 @@ export function Navbar() {
             className="font-semibold text-lg"
             onClick={() => navigate("/")}
           >
-            Meeting Notes
+            Notas de Reunião
           </Button>
           <div className="flex items-center gap-4">
             <Button
@@ -24,7 +24,7 @@ export function Navbar() {
               onClick={() => navigate("/meetings")}
             >
               <ClipboardList size={18} />
-              <span>Meetings</span>
+              <span>Reuniões</span>
             </Button>
             <Button
               variant="ghost"
@@ -32,7 +32,7 @@ export function Navbar() {
               onClick={() => navigate("/action-plans")}
             >
               <Users size={18} />
-              <span>Action Plans</span>
+              <span>Planos de Ação</span>
             </Button>
           </div>
         </div>
