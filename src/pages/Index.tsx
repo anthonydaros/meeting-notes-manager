@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, Trash2, MessageCircle } from "lucide-react";
 import { useState } from "react";
+import { NotesModal } from "@/components/modals/notes-modal";
+import { DeleteConfirmModal } from "@/components/modals/delete-confirm-modal";
 
-// Tipos para nossos dados
 interface ActionPlan {
   id: number;
   dateTime: string;
@@ -17,9 +18,9 @@ interface ActionPlan {
   responsible: string;
   investment: string;
   status: "complete" | "progress" | "overdue";
+  notes?: string;
 }
 
-// Dados de exemplo
 const initialData: ActionPlan[] = [
   {
     id: 1,
@@ -32,6 +33,7 @@ const initialData: ActionPlan[] = [
     responsible: "João Silva",
     investment: "R$ 5.000",
     status: "progress",
+    notes: "Update será realizado em etapas para minimizar o impacto.",
   },
   {
     id: 2,
@@ -44,6 +46,7 @@ const initialData: ActionPlan[] = [
     responsible: "Maria Santos",
     investment: "R$ 3.000",
     status: "complete",
+    notes: "Consultoria já contratada, aguardando início.",
   },
   {
     id: 3,
@@ -56,6 +59,7 @@ const initialData: ActionPlan[] = [
     responsible: "Pedro Costa",
     investment: "N/A",
     status: "overdue",
+    notes: "Dados do mês de março ainda não disponíveis.",
   },
 ];
 
@@ -66,10 +70,9 @@ const Index = () => {
     id: number;
     field: keyof ActionPlan;
   } | null>(null);
-
-  const getStatusBadgeClass = (status: ActionPlan["status"]) => {
-    return `status-badge status-${status}`;
-  };
+  const [selectedPlanId, setSelectedPlanId] = useState<number | null>(null);
+  const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   const handleCellEdit = (
     id: number,
@@ -85,9 +88,21 @@ const Index = () => {
   };
 
   const handleDeletePlan = (id: number) => {
-    if (confirm("Tem certeza que deseja excluir este plano de ação?")) {
-      setActionPlans((prev) => prev.filter((plan) => plan.id !== id));
+    setSelectedPlanId(id);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (selectedPlanId) {
+      setActionPlans((prev) => prev.filter((plan) => plan.id !== selectedPlanId));
+      setIsDeleteModalOpen(false);
+      setSelectedPlanId(null);
     }
+  };
+
+  const handleViewNotes = (id: number) => {
+    setSelectedPlanId(id);
+    setIsNotesModalOpen(true);
   };
 
   const filteredPlans = actionPlans.filter((plan) =>
@@ -95,6 +110,8 @@ const Index = () => {
       String(value).toLowerCase().includes(searchTerm.toLowerCase())
     )
   );
+
+  const selectedPlan = actionPlans.find((plan) => plan.id === selectedPlanId);
 
   return (
     <AppLayout>
@@ -304,14 +321,8 @@ const Index = () => {
                       plan.investment
                     )}
                   </td>
-                  <td>
-                    <span className={getStatusBadgeClass(plan.status)}>
-                      {plan.status === "complete"
-                        ? "Concluído"
-                        : plan.status === "progress"
-                        ? "Em Andamento"
-                        : "Atrasado"}
-                    </span>
+                  <td className="text-center">
+                    <span className={`status-badge status-${plan.status}`} />
                   </td>
                   <td>
                     <div className="flex items-center gap-2">
@@ -320,6 +331,7 @@ const Index = () => {
                         size="icon"
                         className="h-8 w-8"
                         title="Observações"
+                        onClick={() => handleViewNotes(plan.id)}
                       >
                         <MessageCircle className="h-4 w-4" />
                       </Button>
@@ -340,6 +352,18 @@ const Index = () => {
           </table>
         </div>
       </div>
+
+      <NotesModal
+        isOpen={isNotesModalOpen}
+        onClose={() => setIsNotesModalOpen(false)}
+        notes={selectedPlan?.notes}
+      />
+
+      <DeleteConfirmModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={confirmDelete}
+      />
     </AppLayout>
   );
 };

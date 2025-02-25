@@ -54,16 +54,20 @@
   animation: fadeIn 0.5s ease-out forwards;
 }
 
+.status-badge {
+  @apply w-3 h-3 rounded-full inline-block border border-slate-200;
+}
+
 .status-complete {
-  @apply bg-status-complete/10 text-status-complete font-medium;
+  @apply bg-emerald-500;
 }
 
 .status-progress {
-  @apply bg-status-progress/10 text-status-progress font-medium;
+  @apply bg-amber-500;
 }
 
 .status-overdue {
-  @apply bg-status-overdue/10 text-status-overdue font-medium;
+  @apply bg-red-500;
 }
 
 .editable-cell {
@@ -84,8 +88,4 @@
 
 .action-plans-table td {
   @apply px-4 py-3 border-t;
-}
-
-.status-badge {
-  @apply px-2 py-1 rounded-full text-xs inline-flex items-center justify-center;
 }
