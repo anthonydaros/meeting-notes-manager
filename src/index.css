@@ -1,4 +1,6 @@
 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -15,7 +17,7 @@
     --card-foreground: 222.2 47.4% 11.2%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --primary: 221.2 83.2% 53.3%;
+    --primary: 199 89% 48%;
     --primary-foreground: 210 40% 98%;
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
@@ -32,7 +34,8 @@
   }
 
   body {
-    @apply bg-background text-foreground antialiased;
+    @apply bg-background text-foreground antialiased font-sans;
+    font-family: 'Inter', sans-serif;
   }
 }
 
@@ -49,4 +52,40 @@
 
 .animate-fade-in {
   animation: fadeIn 0.5s ease-out forwards;
+}
+
+.status-complete {
+  @apply bg-status-complete/10 text-status-complete font-medium;
+}
+
+.status-progress {
+  @apply bg-status-progress/10 text-status-progress font-medium;
+}
+
+.status-overdue {
+  @apply bg-status-overdue/10 text-status-overdue font-medium;
+}
+
+.editable-cell {
+  @apply transition-colors duration-150 hover:bg-slate-50 cursor-text;
+}
+
+.table-container {
+  @apply w-full overflow-x-auto border rounded-lg bg-white shadow-sm;
+}
+
+.action-plans-table {
+  @apply w-full text-sm;
+}
+
+.action-plans-table th {
+  @apply bg-slate-50 px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider;
+}
+
+.action-plans-table td {
+  @apply px-4 py-3 border-t;
+}
+
+.status-badge {
+  @apply px-2 py-1 rounded-full text-xs inline-flex items-center justify-center;
 }
