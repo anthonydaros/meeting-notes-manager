@@ -6,6 +6,11 @@ import { Search, Trash2, MessageCircle } from "lucide-react";
 import { useState } from "react";
 import { NotesModal } from "@/components/modals/notes-modal";
 import { DeleteConfirmModal } from "@/components/modals/delete-confirm-modal";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 interface ActionPlan {
   id: number;
@@ -63,6 +68,44 @@ const initialData: ActionPlan[] = [
   },
 ];
 
+const StatusPopover = ({
+  status,
+  onChange,
+}: {
+  status: ActionPlan["status"];
+  onChange: (newStatus: ActionPlan["status"]) => void;
+}) => {
+  const statusOptions = [
+    { value: "complete", label: "Concluído" },
+    { value: "progress", label: "Em Andamento" },
+    { value: "overdue", label: "Atrasado" },
+  ] as const;
+
+  return (
+    <Popover>
+      <PopoverTrigger>
+        <span className={`status-badge status-${status} cursor-pointer hover:opacity-80`} />
+      </PopoverTrigger>
+      <PopoverContent className="w-40 p-2">
+        <div className="flex flex-col gap-2">
+          {statusOptions.map((option) => (
+            <button
+              key={option.value}
+              className={`flex items-center gap-2 p-2 rounded hover:bg-slate-50 ${
+                status === option.value ? "bg-slate-100" : ""
+              }`}
+              onClick={() => onChange(option.value)}
+            >
+              <span className={`status-badge status-${option.value}`} />
+              <span className="text-sm">{option.label}</span>
+            </button>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+};
+
 const Index = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [actionPlans, setActionPlans] = useState<ActionPlan[]>(initialData);
@@ -85,6 +128,14 @@ const Index = () => {
       )
     );
     setEditingCell(null);
+  };
+
+  const handleStatusChange = (id: number, newStatus: ActionPlan["status"]) => {
+    setActionPlans((prev) =>
+      prev.map((plan) =>
+        plan.id === id ? { ...plan, status: newStatus } : plan
+      )
+    );
   };
 
   const handleDeletePlan = (id: number) => {
@@ -322,7 +373,10 @@ const Index = () => {
                     )}
                   </td>
                   <td className="text-center">
-                    <span className={`status-badge status-${plan.status}`} />
+                    <StatusPopover
+                      status={plan.status}
+                      onChange={(newStatus) => handleStatusChange(plan.id, newStatus)}
+                    />
                   </td>
                   <td>
                     <div className="flex items-center gap-2">
