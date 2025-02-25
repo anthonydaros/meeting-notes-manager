@@ -6,10 +6,14 @@ import { useState } from "react";
 import { NotesModal } from "@/components/modals/notes-modal";
 import { DeleteConfirmModal } from "@/components/modals/delete-confirm-modal";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 
 interface ActionPlan {
   id: number;
@@ -117,6 +121,8 @@ type SortConfig = {
   direction: "asc" | "desc" | null;
 };
 
+const ITEMS_PER_PAGE = 50;
+
 const Index = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [actionPlans, setActionPlans] = useState<ActionPlan[]>(initialData);
@@ -137,6 +143,7 @@ const Index = () => {
     key: null,
     direction: null,
   });
+  const [currentPage, setCurrentPage] = useState(1);
 
   const handleCellEdit = (
     id: number,
@@ -246,6 +253,10 @@ const Index = () => {
       return 0;
     });
   }
+
+  const totalPages = Math.ceil(filteredPlans.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedPlans = filteredPlans.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
   const selectedPlan = actionPlans.find((plan) => plan.id === selectedPlanId);
 
@@ -362,7 +373,7 @@ const Index = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredPlans.map((plan) => (
+              {paginatedPlans.map((plan) => (
                 <tr key={plan.id}>
                   <td>{plan.id}</td>
                   <td
@@ -566,19 +577,58 @@ const Index = () => {
             </tbody>
           </table>
         </div>
+
+        <Pagination>
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (currentPage > 1) setCurrentPage(currentPage - 1);
+                }}
+              />
+            </PaginationItem>
+            
+            {[...Array(totalPages)].map((_, i) => (
+              <PaginationItem key={i + 1}>
+                <PaginationLink
+                  href="#"
+                  isActive={currentPage === i + 1}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setCurrentPage(i + 1);
+                  }}
+                >
+                  {i + 1}
+                </PaginationLink>
+              </PaginationItem>
+            ))}
+            
+            <PaginationItem>
+              <PaginationNext
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (currentPage < totalPages) setCurrentPage(currentPage + 1);
+                }}
+              />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
+
+        <NotesModal
+          isOpen={isNotesModalOpen}
+          onClose={() => setIsNotesModalOpen(false)}
+          notes={selectedPlan?.notes}
+        />
+
+        <DeleteConfirmModal
+          isOpen={isDeleteModalOpen}
+          onClose={() => setIsDeleteModalOpen(false)}
+          onConfirm={confirmDelete}
+        />
       </div>
-
-      <NotesModal
-        isOpen={isNotesModalOpen}
-        onClose={() => setIsNotesModalOpen(false)}
-        notes={selectedPlan?.notes}
-      />
-
-      <DeleteConfirmModal
-        isOpen={isDeleteModalOpen}
-        onClose={() => setIsDeleteModalOpen(false)}
-        onConfirm={confirmDelete}
-      />
     </AppLayout>
   );
 };
