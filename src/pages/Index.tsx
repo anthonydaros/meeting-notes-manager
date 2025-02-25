@@ -276,7 +276,7 @@ const Index = () => {
           </div>
           <Input
             type="text"
-            placeholder="Setor"
+            placeholder="Setor/Responsável"
             className="max-w-[150px]"
             value={filters.department}
             onChange={(e) =>
@@ -323,7 +323,7 @@ const Index = () => {
                 </th>
                 <th className="cursor-pointer hover:bg-slate-100" onClick={() => handleSort("department")}>
                   <div className="flex items-center gap-2">
-                    Setor
+                    Setor/Responsável
                     {getSortIcon("department")}
                   </div>
                 </th>
@@ -349,12 +349,6 @@ const Index = () => {
                   <div className="flex items-center gap-2">
                     Término
                     {getSortIcon("endDate")}
-                  </div>
-                </th>
-                <th className="cursor-pointer hover:bg-slate-100" onClick={() => handleSort("responsible")}>
-                  <div className="flex items-center gap-2">
-                    Responsável
-                    {getSortIcon("responsible")}
                   </div>
                 </th>
                 <th className="cursor-pointer hover:bg-slate-100" onClick={() => handleSort("investment")}>
@@ -391,25 +385,53 @@ const Index = () => {
                       formatDateTime(plan.dateTime)
                     )}
                   </td>
-                  <td
-                    className="editable-cell"
-                    onClick={() =>
-                      setEditingCell({ id: plan.id, field: "department" })
-                    }
-                  >
-                    {editingCell?.id === plan.id &&
-                    editingCell.field === "department" ? (
-                      <input
-                        type="text"
-                        defaultValue={plan.department}
-                        onBlur={(e) =>
-                          handleCellEdit(plan.id, "department", e.target.value)
+                  <td className="editable-cell">
+                    <div className="flex flex-col gap-1">
+                      <div
+                        className="font-medium text-slate-900"
+                        onClick={() =>
+                          setEditingCell({ id: plan.id, field: "department" })
                         }
-                        autoFocus
-                      />
-                    ) : (
-                      plan.department
-                    )}
+                      >
+                        {editingCell?.id === plan.id &&
+                        editingCell.field === "department" ? (
+                          <input
+                            type="text"
+                            defaultValue={plan.department}
+                            onBlur={(e) =>
+                              handleCellEdit(plan.id, "department", e.target.value)
+                            }
+                            autoFocus
+                          />
+                        ) : (
+                          plan.department
+                        )}
+                      </div>
+                      <div
+                        className="text-sm text-slate-600"
+                        onClick={() =>
+                          setEditingCell({ id: plan.id, field: "responsible" })
+                        }
+                      >
+                        {editingCell?.id === plan.id &&
+                        editingCell.field === "responsible" ? (
+                          <input
+                            type="text"
+                            defaultValue={plan.responsible}
+                            onBlur={(e) =>
+                              handleCellEdit(
+                                plan.id,
+                                "responsible",
+                                e.target.value
+                              )
+                            }
+                            autoFocus
+                          />
+                        ) : (
+                          plan.responsible
+                        )}
+                      </div>
+                    </div>
                   </td>
                   <td
                     className="editable-cell"
@@ -489,26 +511,6 @@ const Index = () => {
                       />
                     ) : (
                       formatDate(plan.endDate)
-                    )}
-                  </td>
-                  <td
-                    className="editable-cell"
-                    onClick={() =>
-                      setEditingCell({ id: plan.id, field: "responsible" })
-                    }
-                  >
-                    {editingCell?.id === plan.id &&
-                    editingCell.field === "responsible" ? (
-                      <input
-                        type="text"
-                        defaultValue={plan.responsible}
-                        onBlur={(e) =>
-                          handleCellEdit(plan.id, "responsible", e.target.value)
-                        }
-                        autoFocus
-                      />
-                    ) : (
-                      plan.responsible
                     )}
                   </td>
                   <td
