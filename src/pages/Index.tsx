@@ -1,8 +1,7 @@
-
 import { AppLayout } from "@/components/layout/app-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Trash2, MessageCircle } from "lucide-react";
+import { Search, Trash2, MessageCircle, ChevronUp, ChevronDown } from "lucide-react";
 import { useState } from "react";
 import { NotesModal } from "@/components/modals/notes-modal";
 import { DeleteConfirmModal } from "@/components/modals/delete-confirm-modal";
@@ -68,10 +67,7 @@ const initialData: ActionPlan[] = [
   },
 ];
 
-const StatusPopover = ({
-  status,
-  onChange,
-}: {
+const StatusPopover = ({ status, onChange }: {
   status: ActionPlan["status"];
   onChange: (newStatus: ActionPlan["status"]) => void;
 }) => {
@@ -106,6 +102,11 @@ const StatusPopover = ({
   );
 };
 
+type SortConfig = {
+  key: keyof ActionPlan | null;
+  direction: "asc" | "desc" | null;
+};
+
 const Index = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [actionPlans, setActionPlans] = useState<ActionPlan[]>(initialData);
@@ -116,6 +117,16 @@ const Index = () => {
   const [selectedPlanId, setSelectedPlanId] = useState<number | null>(null);
   const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [filters, setFilters] = useState({
+    department: "",
+    startDate: "",
+    endDate: "",
+    responsible: "",
+  });
+  const [sortConfig, setSortConfig] = useState<SortConfig>({
+    key: null,
+    direction: null,
+  });
 
   const handleCellEdit = (
     id: number,
@@ -156,11 +167,75 @@ const Index = () => {
     setIsNotesModalOpen(true);
   };
 
-  const filteredPlans = actionPlans.filter((plan) =>
-    Object.values(plan).some((value) =>
+  const handleSort = (key: keyof ActionPlan) => {
+    setSortConfig((current) => {
+      if (current.key === key) {
+        if (current.direction === "asc") {
+          return { key, direction: "desc" };
+        }
+        if (current.direction === "desc") {
+          return { key: null, direction: null };
+        }
+      }
+      return { key, direction: "asc" };
+    });
+  };
+
+  const getSortIcon = (key: keyof ActionPlan) => {
+    if (sortConfig.key !== key) {
+      return <div className="w-4 h-4" />;
+    }
+    return sortConfig.direction === "asc" ? (
+      <ChevronUp className="w-4 h-4" />
+    ) : (
+      <ChevronDown className="w-4 h-4" />
+    );
+  };
+
+  let filteredPlans = actionPlans.filter((plan) => {
+    const matchesSearch = Object.values(plan).some((value) =>
       String(value).toLowerCase().includes(searchTerm.toLowerCase())
-    )
-  );
+    );
+
+    const matchesDepartment = filters.department
+      ? plan.department.toLowerCase().includes(filters.department.toLowerCase())
+      : true;
+
+    const matchesStartDate = filters.startDate
+      ? plan.startDate === filters.startDate
+      : true;
+
+    const matchesEndDate = filters.endDate
+      ? plan.endDate === filters.endDate
+      : true;
+
+    const matchesResponsible = filters.responsible
+      ? plan.responsible.toLowerCase().includes(filters.responsible.toLowerCase())
+      : true;
+
+    return (
+      matchesSearch &&
+      matchesDepartment &&
+      matchesStartDate &&
+      matchesEndDate &&
+      matchesResponsible
+    );
+  });
+
+  if (sortConfig.key && sortConfig.direction) {
+    filteredPlans.sort((a, b) => {
+      const aValue = a[sortConfig.key!];
+      const bValue = b[sortConfig.key!];
+      
+      if (aValue < bValue) {
+        return sortConfig.direction === "asc" ? -1 : 1;
+      }
+      if (aValue > bValue) {
+        return sortConfig.direction === "asc" ? 1 : -1;
+      }
+      return 0;
+    });
+  }
 
   const selectedPlan = actionPlans.find((plan) => plan.id === selectedPlanId);
 
@@ -189,6 +264,40 @@ const Index = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
+          <Input
+            type="text"
+            placeholder="Setor"
+            className="max-w-[150px]"
+            value={filters.department}
+            onChange={(e) =>
+              setFilters((prev) => ({ ...prev, department: e.target.value }))
+            }
+          />
+          <Input
+            type="date"
+            className="max-w-[150px]"
+            value={filters.startDate}
+            onChange={(e) =>
+              setFilters((prev) => ({ ...prev, startDate: e.target.value }))
+            }
+          />
+          <Input
+            type="date"
+            className="max-w-[150px]"
+            value={filters.endDate}
+            onChange={(e) =>
+              setFilters((prev) => ({ ...prev, endDate: e.target.value }))
+            }
+          />
+          <Input
+            type="text"
+            placeholder="Responsável"
+            className="max-w-[150px]"
+            value={filters.responsible}
+            onChange={(e) =>
+              setFilters((prev) => ({ ...prev, responsible: e.target.value }))
+            }
+          />
         </div>
 
         <div className="table-container">
@@ -196,14 +305,54 @@ const Index = () => {
             <thead>
               <tr>
                 <th>#</th>
-                <th>Data e Hora</th>
-                <th>Setor</th>
-                <th>Ação</th>
-                <th>Solução</th>
-                <th>Início</th>
-                <th>Término</th>
-                <th>Responsável</th>
-                <th>Investimento</th>
+                <th className="cursor-pointer hover:bg-slate-100" onClick={() => handleSort("dateTime")}>
+                  <div className="flex items-center gap-2">
+                    Data e Hora
+                    {getSortIcon("dateTime")}
+                  </div>
+                </th>
+                <th className="cursor-pointer hover:bg-slate-100" onClick={() => handleSort("department")}>
+                  <div className="flex items-center gap-2">
+                    Setor
+                    {getSortIcon("department")}
+                  </div>
+                </th>
+                <th className="cursor-pointer hover:bg-slate-100" onClick={() => handleSort("action")}>
+                  <div className="flex items-center gap-2">
+                    Ação
+                    {getSortIcon("action")}
+                  </div>
+                </th>
+                <th className="cursor-pointer hover:bg-slate-100" onClick={() => handleSort("solution")}>
+                  <div className="flex items-center gap-2">
+                    Solução
+                    {getSortIcon("solution")}
+                  </div>
+                </th>
+                <th className="cursor-pointer hover:bg-slate-100" onClick={() => handleSort("startDate")}>
+                  <div className="flex items-center gap-2">
+                    Início
+                    {getSortIcon("startDate")}
+                  </div>
+                </th>
+                <th className="cursor-pointer hover:bg-slate-100" onClick={() => handleSort("endDate")}>
+                  <div className="flex items-center gap-2">
+                    Término
+                    {getSortIcon("endDate")}
+                  </div>
+                </th>
+                <th className="cursor-pointer hover:bg-slate-100" onClick={() => handleSort("responsible")}>
+                  <div className="flex items-center gap-2">
+                    Responsável
+                    {getSortIcon("responsible")}
+                  </div>
+                </th>
+                <th className="cursor-pointer hover:bg-slate-100" onClick={() => handleSort("investment")}>
+                  <div className="flex items-center gap-2">
+                    Investimento
+                    {getSortIcon("investment")}
+                  </div>
+                </th>
                 <th>Status</th>
                 <th>Ações</th>
               </tr>
