@@ -1,3 +1,4 @@
+
 import {
   Dialog,
   DialogContent,
@@ -210,9 +211,9 @@ export function AddPlanModal({ isOpen, onClose, onAdd }: AddPlanModalProps) {
           </div>
           <div className="space-y-2">
             <Label htmlFor="notes">Observações</Label>
-            <Input
+            <textarea
               id="notes"
-              type="text"
+              className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               value={formData.notes}
               onChange={(e) =>
                 setFormData({ ...formData, notes: e.target.value })
