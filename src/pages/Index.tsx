@@ -1,3 +1,4 @@
+
 import { AppLayout } from "@/components/layout/app-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,6 +47,51 @@ interface Filters {
   endDate: string;
   responsible: string;
 }
+
+const StatusPopover = ({ status, onChange }: {
+  status: ActionPlan["status"];
+  onChange: (newStatus: ActionPlan["status"]) => void;
+}) => {
+  const statusOptions = [
+    { value: "complete", label: "Concluído" },
+    { value: "progress", label: "Em Andamento" },
+    { value: "overdue", label: "Atrasado" },
+  ] as const;
+
+  return (
+    <Popover>
+      <PopoverTrigger>
+        <span className={`status-badge status-${status} cursor-pointer hover:opacity-80`} />
+      </PopoverTrigger>
+      <PopoverContent className="w-40 p-2">
+        <div className="flex flex-col gap-2">
+          {statusOptions.map((option) => (
+            <button
+              key={option.value}
+              className={`flex items-center gap-2 p-2 rounded hover:bg-slate-50 ${
+                status === option.value ? "bg-slate-100" : ""
+              }`}
+              onClick={() => onChange(option.value)}
+            >
+              <span className={`status-badge status-${option.value}`} />
+              <span className="text-sm">{option.label}</span>
+            </button>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+};
+
+const formatDateTime = (dateTime: string) => {
+  const date = new Date(dateTime);
+  return `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear().toString().slice(2)} ${date.getHours().toString().padStart(2, '0')}h${date.getMinutes().toString().padStart(2, '0')}`;
+};
+
+const formatDate = (date: string) => {
+  const d = new Date(date);
+  return `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear().toString().slice(2)}`;
+};
 
 const initialData: ActionPlan[] = [
   {
