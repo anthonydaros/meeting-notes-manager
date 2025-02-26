@@ -35,6 +35,18 @@ interface ActionPlan {
   notes?: string;
 }
 
+type SortConfig = {
+  key: keyof ActionPlan | null;
+  direction: "asc" | "desc" | null;
+};
+
+interface Filters {
+  department: string;
+  startDate: string;
+  endDate: string;
+  responsible: string;
+}
+
 const initialData: ActionPlan[] = [
   {
     id: 1,
@@ -77,56 +89,6 @@ const initialData: ActionPlan[] = [
   },
 ];
 
-const StatusPopover = ({ status, onChange }: {
-  status: ActionPlan["status"];
-  onChange: (newStatus: ActionPlan["status"]) => void;
-}) => {
-  const statusOptions = [
-    { value: "complete", label: "Concluído" },
-    { value: "progress", label: "Em Andamento" },
-    { value: "overdue", label: "Atrasado" },
-  ] as const;
-
-  return (
-    <Popover>
-      <PopoverTrigger>
-        <span className={`status-badge status-${status} cursor-pointer hover:opacity-80`} />
-      </PopoverTrigger>
-      <PopoverContent className="w-40 p-2">
-        <div className="flex flex-col gap-2">
-          {statusOptions.map((option) => (
-            <button
-              key={option.value}
-              className={`flex items-center gap-2 p-2 rounded hover:bg-slate-50 ${
-                status === option.value ? "bg-slate-100" : ""
-              }`}
-              onClick={() => onChange(option.value)}
-            >
-              <span className={`status-badge status-${option.value}`} />
-              <span className="text-sm">{option.label}</span>
-            </button>
-          ))}
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
-};
-
-const formatDateTime = (dateTime: string) => {
-  const date = new Date(dateTime);
-  return `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear().toString().slice(2)} ${date.getHours().toString().padStart(2, '0')}h${date.getMinutes().toString().padStart(2, '0')}`;
-};
-
-const formatDate = (date: string) => {
-  const d = new Date(date);
-  return `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear().toString().slice(2)}`;
-};
-
-type SortConfig = {
-  key: keyof ActionPlan | null;
-  direction: "asc" | "desc" | null;
-};
-
 const ITEMS_PER_PAGE = 50;
 
 const Index = () => {
@@ -140,6 +102,17 @@ const Index = () => {
   const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [sortConfig, setSortConfig] = useState<SortConfig>({
+    key: null,
+    direction: null,
+  });
+  const [filters, setFilters] = useState<Filters>({
+    department: "",
+    startDate: "",
+    endDate: "",
+    responsible: "",
+  });
 
   const handleAddPlan = (newPlan: Omit<ActionPlan, "id">) => {
     const newId = Math.max(...actionPlans.map((plan) => plan.id)) + 1;

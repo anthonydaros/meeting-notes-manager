@@ -1,4 +1,3 @@
-
 import {
   Dialog,
   DialogContent,
@@ -37,7 +36,7 @@ interface ActionPlan {
 }
 
 export function AddPlanModal({ isOpen, onClose, onAdd }: AddPlanModalProps) {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<Omit<ActionPlan, "id">>({
     dateTime: "",
     department: "",
     action: "",
@@ -46,7 +45,7 @@ export function AddPlanModal({ isOpen, onClose, onAdd }: AddPlanModalProps) {
     endDate: "",
     responsible: "",
     investment: "",
-    status: "progress" as const,
+    status: "progress",
     notes: "",
   });
 
@@ -183,7 +182,7 @@ export function AddPlanModal({ isOpen, onClose, onAdd }: AddPlanModalProps) {
               </PopoverTrigger>
               <PopoverContent className="w-40 p-0">
                 <div className="flex flex-col">
-                  {["complete", "progress", "overdue"].map((status) => (
+                  {(["complete", "progress", "overdue"] as const).map((status) => (
                     <Button
                       key={status}
                       variant="ghost"
@@ -191,13 +190,11 @@ export function AddPlanModal({ isOpen, onClose, onAdd }: AddPlanModalProps) {
                       onClick={() =>
                         setFormData({
                           ...formData,
-                          status: status as ActionPlan["status"],
+                          status,
                         })
                       }
                     >
-                      <span
-                        className={`status-badge status-${status} mr-2`}
-                      />
+                      <span className={`status-badge status-${status} mr-2`} />
                       <span>
                         {status === "complete"
                           ? "Concluído"
