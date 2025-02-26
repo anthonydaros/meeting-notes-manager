@@ -1,10 +1,11 @@
 import { AppLayout } from "@/components/layout/app-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Trash2, MessageCircle, ChevronUp, ChevronDown } from "lucide-react";
+import { Search, Trash2, MessageCircle, ChevronUp, ChevronDown, Plus } from "lucide-react";
 import { useState } from "react";
 import { NotesModal } from "@/components/modals/notes-modal";
 import { DeleteConfirmModal } from "@/components/modals/delete-confirm-modal";
+import { AddPlanModal } from "@/components/modals/add-plan-modal";
 import {
   Pagination,
   PaginationContent,
@@ -138,17 +139,12 @@ const Index = () => {
   const [selectedPlanId, setSelectedPlanId] = useState<number | null>(null);
   const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [filters, setFilters] = useState({
-    department: "",
-    startDate: "",
-    endDate: "",
-    responsible: "",
-  });
-  const [sortConfig, setSortConfig] = useState<SortConfig>({
-    key: null,
-    direction: null,
-  });
-  const [currentPage, setCurrentPage] = useState(1);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
+  const handleAddPlan = (newPlan: Omit<ActionPlan, "id">) => {
+    const newId = Math.max(...actionPlans.map((plan) => plan.id)) + 1;
+    setActionPlans((prev) => [...prev, { ...newPlan, id: newId }]);
+  };
 
   const handleCellEdit = (
     id: number,
@@ -277,6 +273,14 @@ const Index = () => {
               Visualize e gerencie todos os planos de ação
             </p>
           </div>
+          <Button
+            variant="outline"
+            className="bg-[#333333] text-white hover:bg-[#222222]"
+            onClick={() => setIsAddModalOpen(true)}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Adicionar Novo
+          </Button>
         </div>
 
         <div className="flex items-center space-x-2 mb-4">
@@ -632,6 +636,12 @@ const Index = () => {
           isOpen={isDeleteModalOpen}
           onClose={() => setIsDeleteModalOpen(false)}
           onConfirm={confirmDelete}
+        />
+
+        <AddPlanModal
+          isOpen={isAddModalOpen}
+          onClose={() => setIsAddModalOpen(false)}
+          onAdd={handleAddPlan}
         />
       </div>
     </AppLayout>
