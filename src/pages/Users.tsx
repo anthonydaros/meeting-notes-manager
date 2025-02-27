@@ -17,6 +17,7 @@ import { DeleteConfirmModal } from "@/components/modals/delete-confirm-modal";
 import { UserFormModal } from "@/components/modals/user-form-modal";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useAuth } from "@/providers/AuthProvider";
 
 interface User {
   id: string;
@@ -36,6 +37,7 @@ type SortConfig = {
 const ITEMS_PER_PAGE = 10;
 
 const Users = () => {
+  const { user: currentUser } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,36 +64,26 @@ const Users = () => {
     try {
       setLoading(true);
       
-      // Buscar todos os usuários autenticados e seus metadados
-      const { data: { users: authUsers }, error: authError } = await supabase.auth.admin.listUsers();
-      
-      if (authError) throw authError;
-      
-      // Buscar perfis dos usuários
+      // Buscar apenas perfis de usuários, já que não temos acesso admin
       const { data: profilesData, error: profilesError } = await supabase
         .from("profiles")
         .select("*");
       
       if (profilesError) throw profilesError;
       
-      // Combinar dados de auth com profiles
-      const combinedUsers = authUsers.map(authUser => {
-        const profile = profilesData.find(p => p.id === authUser.id);
-        
-        // Extrair departamento e função dos metadados do usuário
-        const userMetadata = authUser.user_metadata || {};
-        
+      // Criar lista de usuários baseada nos perfis
+      const usersList: User[] = profilesData.map(profile => {
         return {
-          id: authUser.id,
-          name: profile?.full_name || authUser.email?.split('@')[0] || 'Sem nome',
-          email: authUser.email || '',
-          department: userMetadata.department || 'Não atribuído',
-          role: userMetadata.role || 'Usuário',
-          status: authUser.user_metadata?.disabled ? 'inactive' : 'active' as 'active' | 'inactive',
+          id: profile.id,
+          name: profile.full_name || 'Sem nome',
+          email: profile.username || '',  // Username geralmente é o email
+          department: 'Não especificado',
+          role: 'Usuário',
+          status: 'active' as 'active' | 'inactive',
         };
       });
       
-      setUsers(combinedUsers);
+      setUsers(usersList);
     } catch (error: any) {
       console.error("Erro ao buscar usuários:", error);
       toast.error("Não foi possível carregar os usuários: " + error.message);
@@ -121,30 +113,6 @@ const Users = () => {
           .update({ full_name: value })
           .eq("id", id);
           
-        if (error) throw error;
-      } else if (field === 'department' || field === 'role') {
-        // Armazenar department e role como metadados do usuário
-        const { error } = await supabase.auth.admin.updateUserById(
-          id,
-          { 
-            user_metadata: { 
-              [field]: value 
-            } 
-          }
-        );
-        
-        if (error) throw error;
-      } else if (field === 'status') {
-        // Desabilitar/habilitar usuário usando metadados
-        const { error } = await supabase.auth.admin.updateUserById(
-          id,
-          { 
-            user_metadata: { 
-              disabled: value === 'inactive' 
-            } 
-          }
-        );
-        
         if (error) throw error;
       }
       
@@ -180,8 +148,7 @@ const Users = () => {
   const handleSaveUser = async (userData: Omit<User, "id"> & { id?: string }) => {
     try {
       if (userData.id) {
-        // Editar usuário existente
-        // Atualizar perfil para o nome
+        // Editar usuário existente - apenas nome
         const { error: profileError } = await supabase
           .from("profiles")
           .update({
@@ -191,49 +158,11 @@ const Users = () => {
           
         if (profileError) throw profileError;
         
-        // Atualizar metadados do usuário para department e role
-        const { error: metadataError } = await supabase.auth.admin.updateUserById(
-          userData.id,
-          { 
-            user_metadata: { 
-              department: userData.department,
-              role: userData.role,
-              disabled: userData.status === 'inactive'
-            } 
-          }
-        );
-        
-        if (metadataError) throw metadataError;
-        
-        // Atualizar senha se fornecida
-        if (userData.password) {
-          const { error: authError } = await supabase.auth.admin.updateUserById(
-            userData.id,
-            { password: userData.password }
-          );
-          
-          if (authError) throw authError;
-        }
-        
         toast.success("Usuário atualizado com sucesso");
       } else {
-        // Adicionar novo usuário
-        // Registrar usuário com auth
-        const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-          email: userData.email,
-          password: userData.password || Math.random().toString(36).slice(-8),
-          email_confirm: true,
-          user_metadata: {
-            full_name: userData.name,
-            department: userData.department,
-            role: userData.role,
-            disabled: userData.status === 'inactive'
-          }
-        });
-        
-        if (authError) throw authError;
-        
-        toast.success("Novo usuário criado com sucesso");
+        // Adicionar novo usuário - não implementado sem acesso admin
+        toast.error("Funcionalidade disponível apenas para administradores");
+        return;
       }
       
       // Recarregar lista de usuários
@@ -245,24 +174,9 @@ const Users = () => {
   };
 
   const confirmDelete = async () => {
-    if (selectedUserId) {
-      try {
-        // Excluir usuário no Supabase
-        const { error } = await supabase.auth.admin.deleteUser(selectedUserId);
-        
-        if (error) throw error;
-        
-        // Atualizar estado local
-        setUsers((prev) => prev.filter((user) => user.id !== selectedUserId));
-        toast.success("Usuário excluído com sucesso");
-      } catch (error: any) {
-        console.error("Erro ao excluir usuário:", error);
-        toast.error("Falha ao excluir usuário: " + error.message);
-      } finally {
-        setIsDeleteModalOpen(false);
-        setSelectedUserId(null);
-      }
-    }
+    toast.error("Funcionalidade disponível apenas para administradores");
+    setIsDeleteModalOpen(false);
+    setSelectedUserId(null);
   };
 
   const handleSort = (key: keyof User) => {
@@ -376,102 +290,112 @@ const Users = () => {
                 </tr>
               </thead>
               <tbody>
-                {paginatedUsers.map((user) => (
-                  <tr key={user.id}>
-                    <td>{user.id.substring(0, 4)}...</td>
-                    <td
-                      className="editable-cell"
-                      onClick={() =>
-                        setEditingCell({ id: user.id, field: "name" })
-                      }
-                    >
-                      {editingCell?.id === user.id &&
-                      editingCell.field === "name" ? (
-                        <input
-                          type="text"
-                          defaultValue={user.name}
-                          onBlur={(e) =>
-                            handleCellEdit(user.id, "name", e.target.value)
-                          }
-                          autoFocus
-                          className="w-full p-1 bg-white border rounded"
-                        />
-                      ) : (
-                        user.name
-                      )}
-                    </td>
-                    <td
-                      className="editable-cell"
-                    >
-                      {user.email}
-                    </td>
-                    <td>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-blue-600"
-                          onClick={() => handleEditUser(user.id)}
-                          title="Editar"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive"
-                          onClick={() => handleDeleteUser(user.id)}
-                          title="Excluir"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                {paginatedUsers.length > 0 ? (
+                  paginatedUsers.map((user) => (
+                    <tr key={user.id}>
+                      <td>{user.id.substring(0, 4)}...</td>
+                      <td
+                        className="editable-cell"
+                        onClick={() =>
+                          setEditingCell({ id: user.id, field: "name" })
+                        }
+                      >
+                        {editingCell?.id === user.id &&
+                        editingCell.field === "name" ? (
+                          <input
+                            type="text"
+                            defaultValue={user.name}
+                            onBlur={(e) =>
+                              handleCellEdit(user.id, "name", e.target.value)
+                            }
+                            autoFocus
+                            className="w-full p-1 bg-white border rounded"
+                          />
+                        ) : (
+                          user.name
+                        )}
+                      </td>
+                      <td
+                        className="editable-cell"
+                      >
+                        {user.email}
+                      </td>
+                      <td>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-blue-600"
+                            onClick={() => handleEditUser(user.id)}
+                            title="Editar"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive"
+                            onClick={() => handleDeleteUser(user.id)}
+                            title="Excluir"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={4} className="text-center py-4">
+                      Nenhum usuário encontrado
                     </td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           )}
         </div>
 
-        <Pagination>
-          <PaginationContent>
-            <PaginationItem>
-              <PaginationPrevious
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  if (currentPage > 1) setCurrentPage(currentPage - 1);
-                }}
-              />
-            </PaginationItem>
-            
-            {Array.from({ length: totalPages }).map((_, i) => (
-              <PaginationItem key={i + 1}>
-                <PaginationLink
+        {totalPages > 0 && (
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
                   href="#"
-                  isActive={currentPage === i + 1}
                   onClick={(e) => {
                     e.preventDefault();
-                    setCurrentPage(i + 1);
+                    if (currentPage > 1) setCurrentPage(currentPage - 1);
                   }}
-                >
-                  {i + 1}
-                </PaginationLink>
+                />
               </PaginationItem>
-            ))}
-            
-            <PaginationItem>
-              <PaginationNext
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  if (currentPage < totalPages) setCurrentPage(currentPage + 1);
-                }}
-              />
-            </PaginationItem>
-          </PaginationContent>
-        </Pagination>
+              
+              {Array.from({ length: totalPages }).map((_, i) => (
+                <PaginationItem key={i + 1}>
+                  <PaginationLink
+                    href="#"
+                    isActive={currentPage === i + 1}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setCurrentPage(i + 1);
+                    }}
+                  >
+                    {i + 1}
+                  </PaginationLink>
+                </PaginationItem>
+              ))}
+              
+              <PaginationItem>
+                <PaginationNext
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (currentPage < totalPages) setCurrentPage(currentPage + 1);
+                  }}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        )}
 
         <DeleteConfirmModal
           isOpen={isDeleteModalOpen}
