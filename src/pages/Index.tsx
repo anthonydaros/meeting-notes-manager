@@ -1,3 +1,4 @@
+
 import { AppLayout } from "@/components/layout/app-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -98,6 +99,7 @@ const formatDate = (date: string) => {
 
 const ITEMS_PER_PAGE = 50;
 
+// Mapeamento de campos do banco de dados para campos da interface
 const mapDatabaseToActionPlan = (data: any): ActionPlan => {
   return {
     id: data.id,
@@ -114,6 +116,7 @@ const mapDatabaseToActionPlan = (data: any): ActionPlan => {
   };
 };
 
+// Mapeamento de campos da interface para o banco de dados
 const mapActionPlanToDatabase = (data: Partial<ActionPlan>) => {
   const mappedData: Record<string, any> = {};
   
@@ -155,42 +158,24 @@ const Index = () => {
     responsible: "",
   });
 
+  // Função para buscar planos de ação do Supabase
   const fetchActionPlans = async () => {
     setIsLoading(true);
     try {
-      console.log('Iniciando busca dos planos de ação...');
-      
       const { data, error } = await supabase
         .from('action_plans')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('date_time', { ascending: false });
       
       if (error) {
-        console.error('Erro Supabase:', error);
         throw error;
       }
       
-      console.log('Dados recebidos:', data);
-      
-      const mappedData: ActionPlan[] = data.map((item) => ({
-        id: item.id,
-        dateTime: item.date_time,
-        department: item.department,
-        action: item.action,
-        solution: item.solution,
-        startDate: item.start_date,
-        endDate: item.end_date,
-        responsible: item.responsible,
-        investment: item.investment,
-        status: item.status,
-        notes: item.notes,
-      }));
-
-      console.log('Dados mapeados:', mappedData);
+      const mappedData: ActionPlan[] = data.map(mapDatabaseToActionPlan);
       setActionPlans(mappedData);
     } catch (error) {
-      console.error('Erro detalhado ao buscar planos de ação:', error);
-      toast.error('Erro ao carregar planos de ação. Por favor, tente novamente.');
+      console.error('Erro ao buscar planos de ação:', error);
+      toast.error('Erro ao carregar planos de ação');
     } finally {
       setIsLoading(false);
     }
