@@ -29,14 +29,48 @@ interface User {
   status: "active" | "inactive";
 }
 
-const initialUsers: User[] = Array.from({ length: 100 }, (_, i) => ({
-  id: i + 1,
-  name: `Usuário ${i + 1}`,
-  email: `usuario${i + 1}@empresa.com`,
-  department: `Departamento ${(i % 5) + 1}`,
-  role: `Cargo ${(i % 3) + 1}`,
-  status: i % 2 === 0 ? "active" : "inactive",
-}));
+const initialUsers: User[] = [
+  {
+    id: 1,
+    name: "João Silva",
+    email: "joao.silva@empresa.com",
+    department: "Departamento 1",
+    role: "Gerente",
+    status: "active",
+  },
+  {
+    id: 2,
+    name: "Maria Santos",
+    email: "maria.santos@empresa.com",
+    department: "Departamento 2",
+    role: "Analista",
+    status: "inactive",
+  },
+  {
+    id: 3,
+    name: "Carlos Oliveira",
+    email: "carlos.oliveira@empresa.com",
+    department: "Departamento 3",
+    role: "Desenvolvedor",
+    status: "active",
+  },
+  {
+    id: 4,
+    name: "Ana Costa",
+    email: "ana.costa@empresa.com",
+    department: "Departamento 1",
+    role: "Designer",
+    status: "inactive",
+  },
+  {
+    id: 5,
+    name: "Roberto Almeida",
+    email: "roberto.almeida@empresa.com",
+    department: "Departamento 2",
+    role: "Coordenador",
+    status: "active",
+  }
+];
 
 type SortConfig = {
   key: keyof User | null;
