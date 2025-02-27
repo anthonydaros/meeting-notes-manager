@@ -21,7 +21,7 @@ export function Navbar() {
             <Button
               variant="ghost"
               className="flex items-center gap-2"
-              onClick={() => navigate("/meetings")}
+              onClick={() => navigate("/users")}
             >
               <Users size={18} />
               <span>Usuários</span>
