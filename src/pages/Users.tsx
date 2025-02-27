@@ -2,7 +2,7 @@
 import { AppLayout } from "@/components/layout/app-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Trash2, ChevronUp, ChevronDown, Plus } from "lucide-react";
+import { Search, Trash2, ChevronUp, ChevronDown, Plus, Pencil } from "lucide-react";
 import { useState } from "react";
 import {
   Pagination,
@@ -13,11 +13,6 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { DeleteConfirmModal } from "@/components/modals/delete-confirm-modal";
 
 interface User {
@@ -79,40 +74,6 @@ type SortConfig = {
 
 const ITEMS_PER_PAGE = 10;
 
-const StatusPopover = ({ status, onChange }: {
-  status: User["status"];
-  onChange: (newStatus: User["status"]) => void;
-}) => {
-  const statusOptions = [
-    { value: "active", label: "Ativo" },
-    { value: "inactive", label: "Inativo" },
-  ] as const;
-
-  return (
-    <Popover>
-      <PopoverTrigger>
-        <span className={`status-badge ${status === "active" ? "status-complete" : "status-overdue"} cursor-pointer hover:opacity-80`} />
-      </PopoverTrigger>
-      <PopoverContent className="w-40 p-2">
-        <div className="flex flex-col gap-2">
-          {statusOptions.map((option) => (
-            <button
-              key={option.value}
-              className={`flex items-center gap-2 p-2 rounded hover:bg-slate-50 ${
-                status === option.value ? "bg-slate-100" : ""
-              }`}
-              onClick={() => onChange(option.value)}
-            >
-              <span className={`status-badge ${option.value === "active" ? "status-complete" : "status-overdue"}`} />
-              <span className="text-sm">{option.label}</span>
-            </button>
-          ))}
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
-};
-
 const Users = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [users, setUsers] = useState<User[]>(initialUsers);
@@ -126,10 +87,6 @@ const Users = () => {
   const [sortConfig, setSortConfig] = useState<SortConfig>({
     key: null,
     direction: null,
-  });
-  const [filters, setFilters] = useState({
-    department: "",
-    role: "",
   });
 
   const handleCellEdit = (
@@ -145,17 +102,15 @@ const Users = () => {
     setEditingCell(null);
   };
 
-  const handleStatusChange = (id: number, newStatus: User["status"]) => {
-    setUsers((prev) =>
-      prev.map((user) =>
-        user.id === id ? { ...user, status: newStatus } : user
-      )
-    );
-  };
-
   const handleDeleteUser = (id: number) => {
     setSelectedUserId(id);
     setIsDeleteModalOpen(true);
+  };
+
+  const handleEditUser = (id: number) => {
+    // Aqui você poderia redirecionar para uma página de edição
+    // ou abrir um modal de edição
+    console.log(`Editar usuário ${id}`);
   };
 
   const confirmDelete = () => {
@@ -196,15 +151,7 @@ const Users = () => {
       String(value).toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    const matchesDepartment = filters.department
-      ? user.department.toLowerCase().includes(filters.department.toLowerCase())
-      : true;
-
-    const matchesRole = filters.role
-      ? user.role.toLowerCase().includes(filters.role.toLowerCase())
-      : true;
-
-    return matchesSearch && matchesDepartment && matchesRole;
+    return matchesSearch;
   });
 
   if (sortConfig.key && sortConfig.direction) {
@@ -258,24 +205,6 @@ const Users = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <Input
-            type="text"
-            placeholder="Setor/Responsável"
-            className="max-w-[150px]"
-            value={filters.department}
-            onChange={(e) =>
-              setFilters((prev) => ({ ...prev, department: e.target.value }))
-            }
-          />
-          <Input
-            type="text"
-            placeholder="Cargo"
-            className="max-w-[150px]"
-            value={filters.role}
-            onChange={(e) =>
-              setFilters((prev) => ({ ...prev, role: e.target.value }))
-            }
-          />
         </div>
 
         <div className="table-container">
@@ -295,19 +224,6 @@ const Users = () => {
                     {getSortIcon("email")}
                   </div>
                 </th>
-                <th className="cursor-pointer hover:bg-slate-100" onClick={() => handleSort("department")}>
-                  <div className="flex items-center gap-2">
-                    Departamento
-                    {getSortIcon("department")}
-                  </div>
-                </th>
-                <th className="cursor-pointer hover:bg-slate-100" onClick={() => handleSort("role")}>
-                  <div className="flex items-center gap-2">
-                    Cargo
-                    {getSortIcon("role")}
-                  </div>
-                </th>
-                <th>Status</th>
                 <th>Ações</th>
               </tr>
             </thead>
@@ -357,56 +273,17 @@ const Users = () => {
                       user.email
                     )}
                   </td>
-                  <td
-                    className="editable-cell"
-                    onClick={() =>
-                      setEditingCell({ id: user.id, field: "department" })
-                    }
-                  >
-                    {editingCell?.id === user.id &&
-                    editingCell.field === "department" ? (
-                      <input
-                        type="text"
-                        defaultValue={user.department}
-                        onBlur={(e) =>
-                          handleCellEdit(user.id, "department", e.target.value)
-                        }
-                        autoFocus
-                        className="w-full p-1 bg-white border rounded"
-                      />
-                    ) : (
-                      user.department
-                    )}
-                  </td>
-                  <td
-                    className="editable-cell"
-                    onClick={() =>
-                      setEditingCell({ id: user.id, field: "role" })
-                    }
-                  >
-                    {editingCell?.id === user.id &&
-                    editingCell.field === "role" ? (
-                      <input
-                        type="text"
-                        defaultValue={user.role}
-                        onBlur={(e) =>
-                          handleCellEdit(user.id, "role", e.target.value)
-                        }
-                        autoFocus
-                        className="w-full p-1 bg-white border rounded"
-                      />
-                    ) : (
-                      user.role
-                    )}
-                  </td>
-                  <td className="text-center">
-                    <StatusPopover
-                      status={user.status}
-                      onChange={(newStatus) => handleStatusChange(user.id, newStatus)}
-                    />
-                  </td>
                   <td>
                     <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-blue-600"
+                        onClick={() => handleEditUser(user.id)}
+                        title="Editar"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="icon"
