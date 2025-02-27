@@ -12,13 +12,13 @@ export function Navbar() {
           <nav className="hidden md:flex items-center gap-6">
             <Link
               to="/users"
-              className="text-sm font-medium transition-colors hover:text-primary"
+              className="text-sm font-medium transition-colors hover:text-primary px-3 py-1.5 rounded-md border border-gray-200 hover:border-primary"
             >
               Usuários
             </Link>
             <Link
               to="/importacao"
-              className="text-sm font-medium transition-colors hover:text-primary"
+              className="text-sm font-medium transition-colors hover:text-primary px-3 py-1.5 rounded-md border border-gray-200 hover:border-primary"
             >
               Importação
             </Link>
@@ -28,7 +28,7 @@ export function Navbar() {
           <span className="text-sm">Olá, Usuário</span>
           <Link
             to="/login"
-            className="ml-4 text-sm font-medium transition-colors hover:text-destructive"
+            className="ml-4 text-sm font-medium transition-colors hover:text-destructive px-3 py-1.5 rounded-md border border-gray-200 hover:border-destructive"
           >
             Sair
           </Link>
