@@ -13,7 +13,7 @@ import { useState, useEffect } from "react";
 import { Eye, EyeOff, RefreshCw } from "lucide-react";
 
 interface User {
-  id: number;
+  id: string;
   name: string;
   email: string;
   department: string;
@@ -25,13 +25,13 @@ interface User {
 interface UserFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (user: Omit<User, "id"> & { id?: number }) => void;
+  onSave: (user: Omit<User, "id"> & { id?: string }) => void;
   user?: User;
   title: string;
 }
 
 export function UserFormModal({ isOpen, onClose, onSave, user, title }: UserFormModalProps) {
-  const [formData, setFormData] = useState<Omit<User, "id"> & { id?: number }>({
+  const [formData, setFormData] = useState<Omit<User, "id"> & { id?: string }>({
     name: "",
     email: "",
     department: "",
@@ -51,7 +51,7 @@ export function UserFormModal({ isOpen, onClose, onSave, user, title }: UserForm
         department: user.department,
         role: user.role,
         status: user.status,
-        password: user.password || "",
+        password: "", // Não exibir a senha atual
       });
     } else {
       setFormData({
@@ -113,6 +113,7 @@ export function UserFormModal({ isOpen, onClose, onSave, user, title }: UserForm
               onChange={(e) =>
                 setFormData({ ...formData, email: e.target.value })
               }
+              disabled={!!user} // Desabilita edição de email para usuários existentes
             />
           </div>
           <div className="space-y-2">

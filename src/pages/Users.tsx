@@ -3,7 +3,7 @@ import { AppLayout } from "@/components/layout/app-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, Trash2, ChevronUp, ChevronDown, Plus, Pencil } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Pagination,
   PaginationContent,
@@ -15,9 +15,11 @@ import {
 } from "@/components/ui/pagination";
 import { DeleteConfirmModal } from "@/components/modals/delete-confirm-modal";
 import { UserFormModal } from "@/components/modals/user-form-modal";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface User {
-  id: number;
+  id: string;
   name: string;
   email: string;
   department: string;
@@ -25,49 +27,6 @@ interface User {
   status: "active" | "inactive";
   password?: string;
 }
-
-const initialUsers: User[] = [
-  {
-    id: 1,
-    name: "João Silva",
-    email: "joao.silva@empresa.com",
-    department: "Departamento 1",
-    role: "Gerente",
-    status: "active",
-  },
-  {
-    id: 2,
-    name: "Maria Santos",
-    email: "maria.santos@empresa.com",
-    department: "Departamento 2",
-    role: "Analista",
-    status: "inactive",
-  },
-  {
-    id: 3,
-    name: "Carlos Oliveira",
-    email: "carlos.oliveira@empresa.com",
-    department: "Departamento 3",
-    role: "Desenvolvedor",
-    status: "active",
-  },
-  {
-    id: 4,
-    name: "Ana Costa",
-    email: "ana.costa@empresa.com",
-    department: "Departamento 1",
-    role: "Designer",
-    status: "inactive",
-  },
-  {
-    id: 5,
-    name: "Roberto Almeida",
-    email: "roberto.almeida@empresa.com",
-    department: "Departamento 2",
-    role: "Coordenador",
-    status: "active",
-  }
-];
 
 type SortConfig = {
   key: keyof User | null;
@@ -78,12 +37,13 @@ const ITEMS_PER_PAGE = 10;
 
 const Users = () => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [users, setUsers] = useState<User[]>(initialUsers);
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
   const [editingCell, setEditingCell] = useState<{
-    id: number;
+    id: string;
     field: keyof User;
   } | null>(null);
-  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isUserFormModalOpen, setIsUserFormModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | undefined>(undefined);
@@ -93,25 +53,105 @@ const Users = () => {
     direction: null,
   });
 
-  const handleCellEdit = (
-    id: number,
+  // Buscar usuários do Supabase
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      
+      // Buscar todos os usuários autenticados
+      const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers();
+      
+      if (authError) throw authError;
+      
+      // Buscar perfis dos usuários
+      const { data: profilesData, error: profilesError } = await supabase
+        .from("profiles")
+        .select("*");
+      
+      if (profilesError) throw profilesError;
+      
+      // Combinar dados de auth com profiles
+      const combinedUsers = authUsers.users.map(authUser => {
+        const profile = profilesData.find(p => p.id === authUser.id);
+        return {
+          id: authUser.id,
+          name: profile?.full_name || authUser.email?.split('@')[0] || 'Sem nome',
+          email: authUser.email || '',
+          department: profile?.department || 'Não atribuído',
+          role: profile?.role || 'Usuário',
+          status: authUser.banned ? 'inactive' : 'active' as 'active' | 'inactive',
+        };
+      });
+      
+      setUsers(combinedUsers);
+    } catch (error: any) {
+      console.error("Erro ao buscar usuários:", error);
+      toast.error("Não foi possível carregar os usuários: " + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCellEdit = async (
+    id: string,
     field: keyof User,
     value: string
   ) => {
-    setUsers((prev) =>
-      prev.map((user) =>
-        user.id === id ? { ...user, [field]: value } : user
-      )
-    );
-    setEditingCell(null);
+    try {
+      // Atualizar UI primeiro para responsividade
+      setUsers((prev) =>
+        prev.map((user) =>
+          user.id === id ? { ...user, [field]: value } : user
+        )
+      );
+      
+      // Atualizar no Supabase
+      if (field === 'name') {
+        // Atualizar nome completo no perfil
+        const { error } = await supabase
+          .from("profiles")
+          .update({ full_name: value })
+          .eq("id", id);
+          
+        if (error) throw error;
+      } else if (field === 'department' || field === 'role') {
+        // Atualizar campos do perfil
+        const { error } = await supabase
+          .from("profiles")
+          .update({ [field]: value })
+          .eq("id", id);
+          
+        if (error) throw error;
+      } else if (field === 'status') {
+        // Banir/desbanir usuário
+        const isBanned = value === 'inactive';
+        await supabase.auth.admin.updateUserById(
+          id,
+          { banned: isBanned }
+        );
+      }
+      
+      toast.success("Usuário atualizado com sucesso");
+    } catch (error: any) {
+      console.error("Erro ao atualizar usuário:", error);
+      toast.error("Falha ao atualizar: " + error.message);
+      // Recarregar dados do servidor
+      fetchUsers();
+    } finally {
+      setEditingCell(null);
+    }
   };
 
-  const handleDeleteUser = (id: number) => {
+  const handleDeleteUser = (id: string) => {
     setSelectedUserId(id);
     setIsDeleteModalOpen(true);
   };
 
-  const handleEditUser = (id: number) => {
+  const handleEditUser = (id: string) => {
     const user = users.find(user => user.id === id);
     if (user) {
       setEditingUser(user);
@@ -124,31 +164,94 @@ const Users = () => {
     setIsUserFormModalOpen(true);
   };
 
-  const handleSaveUser = (userData: Omit<User, "id"> & { id?: number }) => {
-    if (userData.id) {
-      // Editar usuário existente
-      setUsers(prev => 
-        prev.map(user => {
-          if (user.id === userData.id) {
-            // Se a senha está vazia, manter a senha existente
-            const password = userData.password ? userData.password : user.password;
-            return { ...userData, password, id: user.id } as User;
+  const handleSaveUser = async (userData: Omit<User, "id"> & { id?: string }) => {
+    try {
+      if (userData.id) {
+        // Editar usuário existente
+        // Atualizar perfil
+        const { error: profileError } = await supabase
+          .from("profiles")
+          .update({
+            full_name: userData.name,
+            department: userData.department,
+            role: userData.role
+          })
+          .eq("id", userData.id);
+          
+        if (profileError) throw profileError;
+        
+        // Atualizar senha se fornecida
+        if (userData.password) {
+          const { error: authError } = await supabase.auth.admin.updateUserById(
+            userData.id,
+            { password: userData.password }
+          );
+          
+          if (authError) throw authError;
+        }
+        
+        // Banir/desbanir usuário
+        const isBanned = userData.status === 'inactive';
+        await supabase.auth.admin.updateUserById(
+          userData.id,
+          { banned: isBanned }
+        );
+        
+        toast.success("Usuário atualizado com sucesso");
+      } else {
+        // Adicionar novo usuário
+        // Registrar usuário com auth
+        const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+          email: userData.email,
+          password: userData.password || Math.random().toString(36).slice(-8),
+          email_confirm: true,
+          user_metadata: {
+            full_name: userData.name,
           }
-          return user;
-        })
-      );
-    } else {
-      // Adicionar novo usuário
-      const newId = Math.max(0, ...users.map(user => user.id)) + 1;
-      setUsers(prev => [...prev, { ...userData, id: newId } as User]);
+        });
+        
+        if (authError) throw authError;
+        
+        // Atualizar perfil com dados adicionais
+        const { error: profileError } = await supabase
+          .from("profiles")
+          .update({
+            department: userData.department,
+            role: userData.role
+          })
+          .eq("id", authData.user.id);
+          
+        if (profileError) throw profileError;
+        
+        toast.success("Novo usuário criado com sucesso");
+      }
+      
+      // Recarregar lista de usuários
+      fetchUsers();
+    } catch (error: any) {
+      console.error("Erro ao salvar usuário:", error);
+      toast.error("Falha ao salvar usuário: " + error.message);
     }
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (selectedUserId) {
-      setUsers((prev) => prev.filter((user) => user.id !== selectedUserId));
-      setIsDeleteModalOpen(false);
-      setSelectedUserId(null);
+      try {
+        // Excluir usuário no Supabase
+        const { error } = await supabase.auth.admin.deleteUser(selectedUserId);
+        
+        if (error) throw error;
+        
+        // Atualizar estado local
+        setUsers((prev) => prev.filter((user) => user.id !== selectedUserId));
+        toast.success("Usuário excluído com sucesso");
+      } catch (error: any) {
+        console.error("Erro ao excluir usuário:", error);
+        toast.error("Falha ao excluir usuário: " + error.message);
+      } finally {
+        setIsDeleteModalOpen(false);
+        setSelectedUserId(null);
+      }
     }
   };
 
@@ -240,97 +343,85 @@ const Users = () => {
         </div>
 
         <div className="table-container">
-          <table className="action-plans-table">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th className="cursor-pointer hover:bg-slate-100" onClick={() => handleSort("name")}>
-                  <div className="flex items-center gap-2">
-                    Nome
-                    {getSortIcon("name")}
-                  </div>
-                </th>
-                <th className="cursor-pointer hover:bg-slate-100" onClick={() => handleSort("email")}>
-                  <div className="flex items-center gap-2">
-                    Email
-                    {getSortIcon("email")}
-                  </div>
-                </th>
-                <th>Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {paginatedUsers.map((user) => (
-                <tr key={user.id}>
-                  <td>{user.id}</td>
-                  <td
-                    className="editable-cell"
-                    onClick={() =>
-                      setEditingCell({ id: user.id, field: "name" })
-                    }
-                  >
-                    {editingCell?.id === user.id &&
-                    editingCell.field === "name" ? (
-                      <input
-                        type="text"
-                        defaultValue={user.name}
-                        onBlur={(e) =>
-                          handleCellEdit(user.id, "name", e.target.value)
-                        }
-                        autoFocus
-                        className="w-full p-1 bg-white border rounded"
-                      />
-                    ) : (
-                      user.name
-                    )}
-                  </td>
-                  <td
-                    className="editable-cell"
-                    onClick={() =>
-                      setEditingCell({ id: user.id, field: "email" })
-                    }
-                  >
-                    {editingCell?.id === user.id &&
-                    editingCell.field === "email" ? (
-                      <input
-                        type="text"
-                        defaultValue={user.email}
-                        onBlur={(e) =>
-                          handleCellEdit(user.id, "email", e.target.value)
-                        }
-                        autoFocus
-                        className="w-full p-1 bg-white border rounded"
-                      />
-                    ) : (
-                      user.email
-                    )}
-                  </td>
-                  <td>
+          {loading ? (
+            <div className="py-8 text-center">Carregando usuários...</div>
+          ) : (
+            <table className="action-plans-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th className="cursor-pointer hover:bg-slate-100" onClick={() => handleSort("name")}>
                     <div className="flex items-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-blue-600"
-                        onClick={() => handleEditUser(user.id)}
-                        title="Editar"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive"
-                        onClick={() => handleDeleteUser(user.id)}
-                        title="Excluir"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      Nome
+                      {getSortIcon("name")}
                     </div>
-                  </td>
+                  </th>
+                  <th className="cursor-pointer hover:bg-slate-100" onClick={() => handleSort("email")}>
+                    <div className="flex items-center gap-2">
+                      Email
+                      {getSortIcon("email")}
+                    </div>
+                  </th>
+                  <th>Ações</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {paginatedUsers.map((user) => (
+                  <tr key={user.id}>
+                    <td>{user.id.substring(0, 4)}...</td>
+                    <td
+                      className="editable-cell"
+                      onClick={() =>
+                        setEditingCell({ id: user.id, field: "name" })
+                      }
+                    >
+                      {editingCell?.id === user.id &&
+                      editingCell.field === "name" ? (
+                        <input
+                          type="text"
+                          defaultValue={user.name}
+                          onBlur={(e) =>
+                            handleCellEdit(user.id, "name", e.target.value)
+                          }
+                          autoFocus
+                          className="w-full p-1 bg-white border rounded"
+                        />
+                      ) : (
+                        user.name
+                      )}
+                    </td>
+                    <td
+                      className="editable-cell"
+                    >
+                      {user.email}
+                    </td>
+                    <td>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-blue-600"
+                          onClick={() => handleEditUser(user.id)}
+                          title="Editar"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive"
+                          onClick={() => handleDeleteUser(user.id)}
+                          title="Excluir"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
 
         <Pagination>
@@ -345,7 +436,7 @@ const Users = () => {
               />
             </PaginationItem>
             
-            {[...Array(totalPages)].map((_, i) => (
+            {Array.from({ length: totalPages }).map((_, i) => (
               <PaginationItem key={i + 1}>
                 <PaginationLink
                   href="#"
