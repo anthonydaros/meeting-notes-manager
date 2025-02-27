@@ -14,6 +14,7 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import { DeleteConfirmModal } from "@/components/modals/delete-confirm-modal";
+import { UserFormModal } from "@/components/modals/user-form-modal";
 
 interface User {
   id: number;
@@ -83,6 +84,8 @@ const Users = () => {
   } | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isUserFormModalOpen, setIsUserFormModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | undefined>(undefined);
   const [currentPage, setCurrentPage] = useState(1);
   const [sortConfig, setSortConfig] = useState<SortConfig>({
     key: null,
@@ -108,9 +111,31 @@ const Users = () => {
   };
 
   const handleEditUser = (id: number) => {
-    // Aqui você poderia redirecionar para uma página de edição
-    // ou abrir um modal de edição
-    console.log(`Editar usuário ${id}`);
+    const user = users.find(user => user.id === id);
+    if (user) {
+      setEditingUser(user);
+      setIsUserFormModalOpen(true);
+    }
+  };
+
+  const handleAddUser = () => {
+    setEditingUser(undefined);
+    setIsUserFormModalOpen(true);
+  };
+
+  const handleSaveUser = (userData: Omit<User, "id"> & { id?: number }) => {
+    if (userData.id) {
+      // Editar usuário existente
+      setUsers(prev => 
+        prev.map(user => 
+          user.id === userData.id ? { ...userData, id: user.id } as User : user
+        )
+      );
+    } else {
+      // Adicionar novo usuário
+      const newId = Math.max(0, ...users.map(user => user.id)) + 1;
+      setUsers(prev => [...prev, { ...userData, id: newId } as User]);
+    }
   };
 
   const confirmDelete = () => {
@@ -188,6 +213,7 @@ const Users = () => {
           <Button
             variant="outline"
             className="bg-[#333333] text-white hover:bg-[#222222]"
+            onClick={handleAddUser}
           >
             <Plus className="mr-2 h-4 w-4" />
             Adicionar Novo
@@ -344,6 +370,14 @@ const Users = () => {
           isOpen={isDeleteModalOpen}
           onClose={() => setIsDeleteModalOpen(false)}
           onConfirm={confirmDelete}
+        />
+
+        <UserFormModal
+          isOpen={isUserFormModalOpen}
+          onClose={() => setIsUserFormModalOpen(false)}
+          onSave={handleSaveUser}
+          user={editingUser}
+          title={editingUser ? "Editar Usuário" : "Adicionar Usuário"}
         />
       </div>
     </AppLayout>
