@@ -23,6 +23,7 @@ interface User {
   department: string;
   role: string;
   status: "active" | "inactive";
+  password?: string;
 }
 
 const initialUsers: User[] = [
@@ -127,9 +128,14 @@ const Users = () => {
     if (userData.id) {
       // Editar usuário existente
       setUsers(prev => 
-        prev.map(user => 
-          user.id === userData.id ? { ...userData, id: user.id } as User : user
-        )
+        prev.map(user => {
+          if (user.id === userData.id) {
+            // Se a senha está vazia, manter a senha existente
+            const password = userData.password ? userData.password : user.password;
+            return { ...userData, password, id: user.id } as User;
+          }
+          return user;
+        })
       );
     } else {
       // Adicionar novo usuário

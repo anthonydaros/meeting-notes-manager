@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState, useEffect } from "react";
+import { Eye, EyeOff, RefreshCw } from "lucide-react";
 
 interface User {
   id: number;
@@ -18,6 +19,7 @@ interface User {
   department: string;
   role: string;
   status: "active" | "inactive";
+  password?: string;
 }
 
 interface UserFormModalProps {
@@ -35,7 +37,10 @@ export function UserFormModal({ isOpen, onClose, onSave, user, title }: UserForm
     department: "",
     role: "",
     status: "active",
+    password: "",
   });
+
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -46,6 +51,7 @@ export function UserFormModal({ isOpen, onClose, onSave, user, title }: UserForm
         department: user.department,
         role: user.role,
         status: user.status,
+        password: user.password || "",
       });
     } else {
       setFormData({
@@ -54,6 +60,7 @@ export function UserFormModal({ isOpen, onClose, onSave, user, title }: UserForm
         department: "",
         role: "",
         status: "active",
+        password: "",
       });
     }
   }, [user, isOpen]);
@@ -62,6 +69,19 @@ export function UserFormModal({ isOpen, onClose, onSave, user, title }: UserForm
     e.preventDefault();
     onSave(formData);
     onClose();
+  };
+
+  const generatePassword = () => {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
+    let password = "";
+    for (let i = 0; i < 12; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setFormData({ ...formData, password });
+  };
+
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
   };
 
   return (
@@ -94,6 +114,42 @@ export function UserFormModal({ isOpen, onClose, onSave, user, title }: UserForm
                 setFormData({ ...formData, email: e.target.value })
               }
             />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="password">Senha</Label>
+            <div className="relative">
+              <Input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                value={formData.password}
+                onChange={(e) =>
+                  setFormData({ ...formData, password: e.target.value })
+                }
+                required={!user}
+                placeholder={user ? "Deixe em branco para manter a senha atual" : "Digite uma senha"}
+              />
+              <button
+                type="button"
+                className="absolute right-10 top-0 h-full px-3 flex items-center"
+                onClick={togglePasswordVisibility}
+                tabIndex={-1}
+              >
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4 text-gray-500" />
+                ) : (
+                  <Eye className="h-4 w-4 text-gray-500" />
+                )}
+              </button>
+              <button
+                type="button"
+                className="absolute right-0 top-0 h-full px-3 flex items-center"
+                onClick={generatePassword}
+                tabIndex={-1}
+                title="Gerar senha"
+              >
+                <RefreshCw className="h-4 w-4 text-gray-500" />
+              </button>
+            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="department">Departamento</Label>
