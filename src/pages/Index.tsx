@@ -338,15 +338,6 @@ const Index = () => {
               setFilters((prev) => ({ ...prev, endDate: e.target.value }))
             }
           />
-          <Input
-            type="text"
-            placeholder="Responsável"
-            className="max-w-[150px]"
-            value={filters.responsible}
-            onChange={(e) =>
-              setFilters((prev) => ({ ...prev, responsible: e.target.value }))
-            }
-          />
         </div>
 
         <div className="table-container">
