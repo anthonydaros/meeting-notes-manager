@@ -2,7 +2,7 @@
 import { AppLayout } from "@/components/layout/app-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Trash2, MessageCircle, ChevronUp, ChevronDown, Plus, Download } from "lucide-react";
+import { Search, Trash2, MessageCircle, ChevronUp, ChevronDown, Plus } from "lucide-react";
 import { useState, useEffect } from "react";
 import { NotesModal } from "@/components/modals/notes-modal";
 import { DeleteConfirmModal } from "@/components/modals/delete-confirm-modal";
@@ -132,15 +132,6 @@ const mapActionPlanToDatabase = (data: Partial<ActionPlan>) => {
   return mappedData;
 };
 
-const getStatusLabel = (status: ActionPlan["status"]) => {
-  const statusMap = {
-    complete: "Concluído",
-    progress: "Em Andamento",
-    overdue: "Atrasado"
-  };
-  return statusMap[status];
-};
-
 const Index = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [actionPlans, setActionPlans] = useState<ActionPlan[]>([]);
@@ -198,66 +189,6 @@ const Index = () => {
       toast.error('Erro ao carregar planos de ação. Por favor, tente novamente.');
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  // Nova função para exportar dados como CSV
-  const exportToCSV = () => {
-    try {
-      if (actionPlans.length === 0) {
-        toast.error("Não há dados para exportar");
-        return;
-      }
-
-      // Criar cabeçalho do CSV
-      const headers = [
-        'ID', 
-        'Data e Hora', 
-        'Setor', 
-        'Responsável', 
-        'Ação', 
-        'Solução', 
-        'Início', 
-        'Término', 
-        'Investimento', 
-        'Status'
-      ];
-
-      // Transformar dados para formato CSV
-      const csvData = filteredPlans.map(plan => [
-        plan.id.substring(0, 5),
-        formatDateTime(plan.dateTime),
-        plan.department,
-        plan.responsible,
-        plan.action,
-        plan.solution,
-        formatDate(plan.startDate),
-        formatDate(plan.endDate),
-        plan.investment,
-        getStatusLabel(plan.status)
-      ]);
-
-      // Combinar cabeçalho e dados
-      const csvContent = [
-        headers.join(','),
-        ...csvData.map(row => row.join(','))
-      ].join('\n');
-
-      // Criar blob e link para download
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.setAttribute('href', url);
-      link.setAttribute('download', `planos-acao-${new Date().toISOString().split('T')[0]}.csv`);
-      link.style.display = 'none';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      toast.success('Dados exportados com sucesso!');
-    } catch (error) {
-      console.error('Erro ao exportar dados:', error);
-      toast.error('Erro ao exportar dados para CSV');
     }
   };
 
@@ -470,24 +401,14 @@ const Index = () => {
               Visualize e gerencie todos os planos de ação
             </p>
           </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              className="bg-[#333333] text-white hover:bg-[#222222]"
-              onClick={() => setIsAddModalOpen(true)}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Adicionar Novo
-            </Button>
-            <Button
-              variant="outline"
-              className="border-green-600 text-green-600 hover:bg-green-50"
-              onClick={exportToCSV}
-            >
-              <Download className="mr-2 h-4 w-4" />
-              Exportar CSV
-            </Button>
-          </div>
+          <Button
+            variant="outline"
+            className="bg-[#333333] text-white hover:bg-[#222222]"
+            onClick={() => setIsAddModalOpen(true)}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Adicionar Novo
+          </Button>
         </div>
 
         <div className="flex items-center space-x-2 mb-4">
