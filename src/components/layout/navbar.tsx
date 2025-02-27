@@ -11,12 +11,6 @@ export function Navbar() {
           </Link>
           <nav className="hidden md:flex items-center gap-6">
             <Link
-              to="/"
-              className="text-sm font-medium transition-colors hover:text-primary"
-            >
-              Planos de Ação
-            </Link>
-            <Link
               to="/users"
               className="text-sm font-medium transition-colors hover:text-primary"
             >
