@@ -2,7 +2,7 @@
 import { AppLayout } from "@/components/layout/app-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, ChevronUp, ChevronDown } from "lucide-react";
+import { Search, Trash2, ChevronUp, ChevronDown, Plus } from "lucide-react";
 import { useState } from "react";
 import {
   Pagination,
@@ -13,6 +13,12 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { DeleteConfirmModal } from "@/components/modals/delete-confirm-modal";
 
 interface User {
   id: number;
@@ -37,16 +43,94 @@ type SortConfig = {
   direction: "asc" | "desc" | null;
 };
 
-const ITEMS_PER_PAGE = 50;
+const ITEMS_PER_PAGE = 10;
+
+const StatusPopover = ({ status, onChange }: {
+  status: User["status"];
+  onChange: (newStatus: User["status"]) => void;
+}) => {
+  const statusOptions = [
+    { value: "active", label: "Ativo" },
+    { value: "inactive", label: "Inativo" },
+  ] as const;
+
+  return (
+    <Popover>
+      <PopoverTrigger>
+        <span className={`status-badge ${status === "active" ? "status-complete" : "status-overdue"} cursor-pointer hover:opacity-80`} />
+      </PopoverTrigger>
+      <PopoverContent className="w-40 p-2">
+        <div className="flex flex-col gap-2">
+          {statusOptions.map((option) => (
+            <button
+              key={option.value}
+              className={`flex items-center gap-2 p-2 rounded hover:bg-slate-50 ${
+                status === option.value ? "bg-slate-100" : ""
+              }`}
+              onClick={() => onChange(option.value)}
+            >
+              <span className={`status-badge ${option.value === "active" ? "status-complete" : "status-overdue"}`} />
+              <span className="text-sm">{option.label}</span>
+            </button>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+};
 
 const Users = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [users, setUsers] = useState<User[]>(initialUsers);
+  const [editingCell, setEditingCell] = useState<{
+    id: number;
+    field: keyof User;
+  } | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [sortConfig, setSortConfig] = useState<SortConfig>({
     key: null,
     direction: null,
   });
+  const [filters, setFilters] = useState({
+    department: "",
+    role: "",
+  });
+
+  const handleCellEdit = (
+    id: number,
+    field: keyof User,
+    value: string
+  ) => {
+    setUsers((prev) =>
+      prev.map((user) =>
+        user.id === id ? { ...user, [field]: value } : user
+      )
+    );
+    setEditingCell(null);
+  };
+
+  const handleStatusChange = (id: number, newStatus: User["status"]) => {
+    setUsers((prev) =>
+      prev.map((user) =>
+        user.id === id ? { ...user, status: newStatus } : user
+      )
+    );
+  };
+
+  const handleDeleteUser = (id: number) => {
+    setSelectedUserId(id);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (selectedUserId) {
+      setUsers((prev) => prev.filter((user) => user.id !== selectedUserId));
+      setIsDeleteModalOpen(false);
+      setSelectedUserId(null);
+    }
+  };
 
   const handleSort = (key: keyof User) => {
     setSortConfig((current) => {
@@ -73,11 +157,21 @@ const Users = () => {
     );
   };
 
-  let filteredUsers = users.filter((user) =>
-    Object.values(user).some((value) =>
+  let filteredUsers = users.filter((user) => {
+    const matchesSearch = Object.values(user).some((value) =>
       String(value).toLowerCase().includes(searchTerm.toLowerCase())
-    )
-  );
+    );
+
+    const matchesDepartment = filters.department
+      ? user.department.toLowerCase().includes(filters.department.toLowerCase())
+      : true;
+
+    const matchesRole = filters.role
+      ? user.role.toLowerCase().includes(filters.role.toLowerCase())
+      : true;
+
+    return matchesSearch && matchesDepartment && matchesRole;
+  });
 
   if (sortConfig.key && sortConfig.direction) {
     filteredUsers.sort((a, b) => {
@@ -110,6 +204,13 @@ const Users = () => {
               Gerencie os usuários do sistema
             </p>
           </div>
+          <Button
+            variant="outline"
+            className="bg-[#333333] text-white hover:bg-[#222222]"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Adicionar Novo
+          </Button>
         </div>
 
         <div className="flex items-center space-x-2 mb-4">
@@ -123,10 +224,28 @@ const Users = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
+          <Input
+            type="text"
+            placeholder="Setor/Responsável"
+            className="max-w-[150px]"
+            value={filters.department}
+            onChange={(e) =>
+              setFilters((prev) => ({ ...prev, department: e.target.value }))
+            }
+          />
+          <Input
+            type="text"
+            placeholder="Cargo"
+            className="max-w-[150px]"
+            value={filters.role}
+            onChange={(e) =>
+              setFilters((prev) => ({ ...prev, role: e.target.value }))
+            }
+          />
         </div>
 
         <div className="table-container">
-          <table className="w-full">
+          <table className="action-plans-table">
             <thead>
               <tr>
                 <th>#</th>
@@ -154,32 +273,116 @@ const Users = () => {
                     {getSortIcon("role")}
                   </div>
                 </th>
-                <th className="cursor-pointer hover:bg-slate-100" onClick={() => handleSort("status")}>
-                  <div className="flex items-center gap-2">
-                    Status
-                    {getSortIcon("status")}
-                  </div>
-                </th>
+                <th>Status</th>
+                <th>Ações</th>
               </tr>
             </thead>
             <tbody>
               {paginatedUsers.map((user) => (
                 <tr key={user.id}>
                   <td>{user.id}</td>
-                  <td>{user.name}</td>
-                  <td>{user.email}</td>
-                  <td>{user.department}</td>
-                  <td>{user.role}</td>
+                  <td
+                    className="editable-cell"
+                    onClick={() =>
+                      setEditingCell({ id: user.id, field: "name" })
+                    }
+                  >
+                    {editingCell?.id === user.id &&
+                    editingCell.field === "name" ? (
+                      <input
+                        type="text"
+                        defaultValue={user.name}
+                        onBlur={(e) =>
+                          handleCellEdit(user.id, "name", e.target.value)
+                        }
+                        autoFocus
+                        className="w-full p-1 bg-white border rounded"
+                      />
+                    ) : (
+                      user.name
+                    )}
+                  </td>
+                  <td
+                    className="editable-cell"
+                    onClick={() =>
+                      setEditingCell({ id: user.id, field: "email" })
+                    }
+                  >
+                    {editingCell?.id === user.id &&
+                    editingCell.field === "email" ? (
+                      <input
+                        type="text"
+                        defaultValue={user.email}
+                        onBlur={(e) =>
+                          handleCellEdit(user.id, "email", e.target.value)
+                        }
+                        autoFocus
+                        className="w-full p-1 bg-white border rounded"
+                      />
+                    ) : (
+                      user.email
+                    )}
+                  </td>
+                  <td
+                    className="editable-cell"
+                    onClick={() =>
+                      setEditingCell({ id: user.id, field: "department" })
+                    }
+                  >
+                    {editingCell?.id === user.id &&
+                    editingCell.field === "department" ? (
+                      <input
+                        type="text"
+                        defaultValue={user.department}
+                        onBlur={(e) =>
+                          handleCellEdit(user.id, "department", e.target.value)
+                        }
+                        autoFocus
+                        className="w-full p-1 bg-white border rounded"
+                      />
+                    ) : (
+                      user.department
+                    )}
+                  </td>
+                  <td
+                    className="editable-cell"
+                    onClick={() =>
+                      setEditingCell({ id: user.id, field: "role" })
+                    }
+                  >
+                    {editingCell?.id === user.id &&
+                    editingCell.field === "role" ? (
+                      <input
+                        type="text"
+                        defaultValue={user.role}
+                        onBlur={(e) =>
+                          handleCellEdit(user.id, "role", e.target.value)
+                        }
+                        autoFocus
+                        className="w-full p-1 bg-white border rounded"
+                      />
+                    ) : (
+                      user.role
+                    )}
+                  </td>
+                  <td className="text-center">
+                    <StatusPopover
+                      status={user.status}
+                      onChange={(newStatus) => handleStatusChange(user.id, newStatus)}
+                    />
+                  </td>
                   <td>
-                    <span
-                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        user.status === "active"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-red-100 text-red-800"
-                      }`}
-                    >
-                      {user.status === "active" ? "Ativo" : "Inativo"}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive"
+                        onClick={() => handleDeleteUser(user.id)}
+                        title="Excluir"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -225,6 +428,12 @@ const Users = () => {
             </PaginationItem>
           </PaginationContent>
         </Pagination>
+
+        <DeleteConfirmModal
+          isOpen={isDeleteModalOpen}
+          onClose={() => setIsDeleteModalOpen(false)}
+          onConfirm={confirmDelete}
+        />
       </div>
     </AppLayout>
   );
