@@ -88,13 +88,23 @@ const StatusPopover = ({ status, onChange }: {
 };
 
 const formatDateTime = (dateTime: string) => {
-  const date = new Date(dateTime);
-  return `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear().toString().slice(2)} ${date.getHours().toString().padStart(2, '0')}h${date.getMinutes().toString().padStart(2, '0')}`;
+  try {
+    const date = new Date(dateTime);
+    return `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear().toString().slice(2)} ${date.getHours().toString().padStart(2, '0')}h${date.getMinutes().toString().padStart(2, '0')}`;
+  } catch (error) {
+    console.error("Erro ao formatar data e hora:", error);
+    return dateTime;
+  }
 };
 
 const formatDate = (date: string) => {
-  const d = new Date(date);
-  return `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear().toString().slice(2)}`;
+  try {
+    const d = new Date(date);
+    return `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear().toString().slice(2)}`;
+  } catch (error) {
+    console.error("Erro ao formatar data:", error);
+    return date;
+  }
 };
 
 const ITEMS_PER_PAGE = 50;
@@ -170,7 +180,6 @@ const Index = () => {
     try {
       console.log('Iniciando busca dos planos de ação...');
       
-      // Ajuste na consulta
       const { data, error } = await supabase
         .from('action_plans')
         .select('*');
@@ -201,7 +210,7 @@ const Index = () => {
     }
   };
 
-  // Nova função para exportar dados como CSV
+  // Função para exportar dados como CSV
   const exportToCSV = () => {
     try {
       if (actionPlans.length === 0) {
@@ -269,6 +278,8 @@ const Index = () => {
     try {
       const mappedPlan = mapActionPlanToDatabase(newPlan);
       
+      console.log("Enviando para o banco:", mappedPlan);
+      
       const { data, error } = await supabase
         .from('action_plans')
         .insert(mappedPlan)
@@ -276,8 +287,11 @@ const Index = () => {
         .single();
       
       if (error) {
+        console.error("Erro no insert:", error);
         throw error;
       }
+      
+      console.log("Resposta do banco:", data);
       
       toast.success('Plano de ação adicionado com sucesso');
       setActionPlans((prev) => [mapDatabaseToActionPlan(data), ...prev]);
@@ -300,12 +314,16 @@ const Index = () => {
       
       const mappedData = mapActionPlanToDatabase(dataToUpdate);
       
+      console.log(`Atualizando campo "${field}" com valor:`, value);
+      console.log("Dados mapeados para o banco:", mappedData);
+      
       const { error } = await supabase
         .from('action_plans')
         .update(mappedData)
         .eq('id', id);
       
       if (error) {
+        console.error("Erro no update:", error);
         throw error;
       }
       
@@ -326,12 +344,15 @@ const Index = () => {
 
   const handleStatusChange = async (id: string, newStatus: ActionPlan["status"]) => {
     try {
+      console.log(`Atualizando status para: ${newStatus}`);
+      
       const { error } = await supabase
         .from('action_plans')
         .update({ status: newStatus })
         .eq('id', id);
       
       if (error) {
+        console.error("Erro ao atualizar status:", error);
         throw error;
       }
       
@@ -380,6 +401,35 @@ const Index = () => {
   const handleViewNotes = (id: string) => {
     setSelectedPlanId(id);
     setIsNotesModalOpen(true);
+  };
+
+  const handleUpdateNotes = async (newNotes: string) => {
+    if (!selectedPlanId) return;
+    
+    try {
+      console.log(`Atualizando observações para o plano ${selectedPlanId}:`, newNotes);
+      
+      const { error } = await supabase
+        .from('action_plans')
+        .update({ notes: newNotes })
+        .eq('id', selectedPlanId);
+      
+      if (error) {
+        console.error("Erro ao atualizar observações:", error);
+        throw error;
+      }
+      
+      setActionPlans((prev) =>
+        prev.map((plan) =>
+          plan.id === selectedPlanId ? { ...plan, notes: newNotes } : plan
+        )
+      );
+      
+      toast.success('Observações atualizadas com sucesso');
+    } catch (error) {
+      console.error('Erro ao atualizar observações:', error);
+      toast.error('Erro ao atualizar observações');
+    }
   };
 
   const handleSort = (key: keyof ActionPlan) => {
@@ -457,6 +507,18 @@ const Index = () => {
   const paginatedPlans = filteredPlans.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
   const selectedPlan = actionPlans.find((plan) => plan.id === selectedPlanId);
+
+  const handleKeyDown = (
+    e: React.KeyboardEvent<HTMLInputElement>,
+    id: string,
+    field: keyof ActionPlan,
+    value: string
+  ) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleCellEdit(id, field, value);
+    }
+  };
 
   return (
     <AppLayout>
@@ -603,6 +665,7 @@ const Index = () => {
                             onBlur={(e) =>
                               handleCellEdit(plan.id, "dateTime", e.target.value)
                             }
+                            onKeyDown={(e) => handleKeyDown(e, plan.id, "dateTime", e.currentTarget.value)}
                             autoFocus
                           />
                         ) : (
@@ -625,6 +688,7 @@ const Index = () => {
                                 onBlur={(e) =>
                                   handleCellEdit(plan.id, "department", e.target.value)
                                 }
+                                onKeyDown={(e) => handleKeyDown(e, plan.id, "department", e.currentTarget.value)}
                                 autoFocus
                               />
                             ) : (
@@ -649,6 +713,7 @@ const Index = () => {
                                     e.target.value
                                   )
                                 }
+                                onKeyDown={(e) => handleKeyDown(e, plan.id, "responsible", e.currentTarget.value)}
                                 autoFocus
                               />
                             ) : (
@@ -671,6 +736,7 @@ const Index = () => {
                             onBlur={(e) =>
                               handleCellEdit(plan.id, "action", e.target.value)
                             }
+                            onKeyDown={(e) => handleKeyDown(e, plan.id, "action", e.currentTarget.value)}
                             autoFocus
                           />
                         ) : (
@@ -691,6 +757,7 @@ const Index = () => {
                             onBlur={(e) =>
                               handleCellEdit(plan.id, "solution", e.target.value)
                             }
+                            onKeyDown={(e) => handleKeyDown(e, plan.id, "solution", e.currentTarget.value)}
                             autoFocus
                           />
                         ) : (
@@ -711,6 +778,7 @@ const Index = () => {
                             onBlur={(e) =>
                               handleCellEdit(plan.id, "startDate", e.target.value)
                             }
+                            onKeyDown={(e) => handleKeyDown(e, plan.id, "startDate", e.currentTarget.value)}
                             autoFocus
                           />
                         ) : (
@@ -731,6 +799,7 @@ const Index = () => {
                             onBlur={(e) =>
                               handleCellEdit(plan.id, "endDate", e.target.value)
                             }
+                            onKeyDown={(e) => handleKeyDown(e, plan.id, "endDate", e.currentTarget.value)}
                             autoFocus
                           />
                         ) : (
@@ -751,6 +820,7 @@ const Index = () => {
                             onBlur={(e) =>
                               handleCellEdit(plan.id, "investment", e.target.value)
                             }
+                            onKeyDown={(e) => handleKeyDown(e, plan.id, "investment", e.currentTarget.value)}
                             autoFocus
                           />
                         ) : (
@@ -844,6 +914,7 @@ const Index = () => {
           isOpen={isNotesModalOpen}
           onClose={() => setIsNotesModalOpen(false)}
           notes={selectedPlan?.notes}
+          onSave={handleUpdateNotes}
         />
 
         <DeleteConfirmModal
