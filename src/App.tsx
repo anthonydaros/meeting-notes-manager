@@ -1,7 +1,6 @@
 
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider } from "./providers/AuthProvider";
-import { useAuth } from "./providers/AuthProvider";
+import { AuthProvider, useAuth } from "./providers/AuthProvider";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";

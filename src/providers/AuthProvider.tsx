@@ -1,98 +1,102 @@
 
-import { createContext, useContext, useEffect, useState } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
 import { supabase } from "@/integrations/supabase/client";
-import type { User } from "@supabase/supabase-js";
-import { useNavigate } from "react-router-dom";
-import { toast } from "sonner";
+import { Session, User } from "@supabase/supabase-js";
 
-interface AuthContextType {
+type AuthContextType = {
   user: User | null;
-  profile: any | null;
-  signOut: () => Promise<void>;
+  session: Session | null;
   loading: boolean;
-}
+  signIn: (email: string, password: string) => Promise<{
+    error: Error | null;
+    data: Session | null;
+  }>;
+  signOut: () => Promise<void>;
+};
 
-const AuthContext = createContext<AuthContextType>({
-  user: null,
-  profile: null,
-  signOut: async () => {},
-  loading: true,
-});
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<any | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
 
   useEffect(() => {
-    // Buscar sessão inicial
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchProfile(session.user.id);
-      } else {
+    const setupSession = async () => {
+      try {
+        // Verificar se já temos uma sessão ativa
+        const { data } = await supabase.auth.getSession();
+        setSession(data.session);
+        setUser(data.session?.user || null);
+      } catch (error) {
+        console.error("Erro ao verificar sessão:", error);
+      } finally {
         setLoading(false);
       }
-    });
+    };
 
-    // Escutar mudanças na autenticação
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        await fetchProfile(session.user.id);
-      } else {
-        setProfile(null);
+    setupSession();
+
+    // Definir ouvintes para mudanças na autenticação
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setSession(session);
+        setUser(session?.user || null);
         setLoading(false);
       }
-    });
+    );
 
     return () => {
-      subscription.unsubscribe();
+      authListener?.subscription.unsubscribe();
     };
   }, []);
 
-  const fetchProfile = async (userId: string) => {
+  const signIn = async (email: string, password: string) => {
     try {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", userId)
-        .single();
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-      if (error) throw error;
-      setProfile(data);
+      if (error) {
+        throw error;
+      }
+
+      return { data: data.session, error: null };
     } catch (error) {
-      console.error("Erro ao buscar perfil:", error);
-      toast.error("Erro ao carregar dados do perfil");
-    } finally {
-      setLoading(false);
+      console.error("Erro ao fazer login:", error);
+      return { data: null, error: error as Error };
     }
   };
 
   const signOut = async () => {
     try {
       await supabase.auth.signOut();
-      navigate("/login");
-      toast.success("Logout realizado com sucesso");
     } catch (error) {
       console.error("Erro ao fazer logout:", error);
-      toast.error("Erro ao fazer logout");
     }
   };
 
-  return (
-    <AuthContext.Provider value={{ user, profile, signOut, loading }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  const value = {
+    user,
+    session,
+    loading,
+    signIn,
+    signOut,
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
+  if (context === undefined) {
     throw new Error("useAuth deve ser usado dentro de um AuthProvider");
   }
   return context;
