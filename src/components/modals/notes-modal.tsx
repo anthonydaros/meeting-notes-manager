@@ -4,50 +4,62 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
+  DialogClose,
 } from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { useState } from "react";
 
 interface NotesModalProps {
   isOpen: boolean;
   onClose: () => void;
   notes?: string;
+  onSave?: (notes: string) => void;
 }
 
-export function NotesModal({ isOpen, onClose, notes }: NotesModalProps) {
+export function NotesModal({ isOpen, onClose, notes, onSave }: NotesModalProps) {
   const [currentNotes, setCurrentNotes] = useState(notes || "");
+  const isEditable = Boolean(onSave);
 
-  useEffect(() => {
-    setCurrentNotes(notes || "");
-  }, [notes]);
+  const handleSave = () => {
+    if (onSave) {
+      onSave(currentNotes);
+    }
+    onClose();
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Observações</DialogTitle>
         </DialogHeader>
-        <ScrollArea className="max-h-[60vh]">
-          <div className="p-4 space-y-4">
+        <div className="py-4">
+          {isEditable ? (
             <textarea
-              className="w-full min-h-[200px] p-3 rounded-md border border-input bg-background text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+              className="w-full min-h-[150px] p-3 rounded-md border bg-white focus:outline-none"
               value={currentNotes}
               onChange={(e) => setCurrentNotes(e.target.value)}
-              placeholder="Digite suas observações aqui..."
             />
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={onClose}>
-                Cancelar
-              </Button>
-              <Button onClick={() => onClose()}>
-                Salvar
-              </Button>
+          ) : (
+            <div className="p-3 rounded-md border min-h-[150px] bg-white">
+              {notes || "Nenhuma observação disponível."}
             </div>
-          </div>
-        </ScrollArea>
+          )}
+        </div>
+        <DialogFooter className="sm:justify-end">
+          <DialogClose asChild>
+            <Button type="button" variant="secondary">
+              Fechar
+            </Button>
+          </DialogClose>
+          {isEditable && (
+            <Button type="button" onClick={handleSave}>
+              Salvar
+            </Button>
+          )}
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
-
