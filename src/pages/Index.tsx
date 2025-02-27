@@ -1,3 +1,4 @@
+
 import { AppLayout } from "@/components/layout/app-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -160,10 +161,10 @@ const Index = () => {
     try {
       console.log('Iniciando busca dos planos de ação...');
       
+      // Ajuste na consulta
       const { data, error } = await supabase
         .from('action_plans')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select('*');
       
       if (error) {
         console.error('Erro Supabase:', error);
@@ -172,20 +173,15 @@ const Index = () => {
       
       console.log('Dados recebidos:', data);
       
-      const mappedData: ActionPlan[] = data.map((item) => ({
-        id: item.id,
-        dateTime: item.date_time,
-        department: item.department,
-        action: item.action,
-        solution: item.solution,
-        startDate: item.start_date,
-        endDate: item.end_date,
-        responsible: item.responsible,
-        investment: item.investment,
-        status: item.status,
-        notes: item.notes,
-      }));
-
+      if (!data || data.length === 0) {
+        console.log('Nenhum dado encontrado na tabela action_plans');
+        setActionPlans([]);
+        setIsLoading(false);
+        return;
+      }
+      
+      const mappedData: ActionPlan[] = data.map(mapDatabaseToActionPlan);
+      
       console.log('Dados mapeados:', mappedData);
       setActionPlans(mappedData);
     } catch (error) {
