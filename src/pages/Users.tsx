@@ -62,8 +62,8 @@ const Users = () => {
     try {
       setLoading(true);
       
-      // Buscar todos os usuários autenticados
-      const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers();
+      // Buscar todos os usuários autenticados e seus metadados
+      const { data: { users: authUsers }, error: authError } = await supabase.auth.admin.listUsers();
       
       if (authError) throw authError;
       
@@ -75,15 +75,19 @@ const Users = () => {
       if (profilesError) throw profilesError;
       
       // Combinar dados de auth com profiles
-      const combinedUsers = authUsers.users.map(authUser => {
+      const combinedUsers = authUsers.map(authUser => {
         const profile = profilesData.find(p => p.id === authUser.id);
+        
+        // Extrair departamento e função dos metadados do usuário
+        const userMetadata = authUser.user_metadata || {};
+        
         return {
           id: authUser.id,
           name: profile?.full_name || authUser.email?.split('@')[0] || 'Sem nome',
           email: authUser.email || '',
-          department: profile?.department || 'Não atribuído',
-          role: profile?.role || 'Usuário',
-          status: authUser.banned ? 'inactive' : 'active' as 'active' | 'inactive',
+          department: userMetadata.department || 'Não atribuído',
+          role: userMetadata.role || 'Usuário',
+          status: authUser.user_metadata?.disabled ? 'inactive' : 'active' as 'active' | 'inactive',
         };
       });
       
@@ -119,20 +123,29 @@ const Users = () => {
           
         if (error) throw error;
       } else if (field === 'department' || field === 'role') {
-        // Atualizar campos do perfil
-        const { error } = await supabase
-          .from("profiles")
-          .update({ [field]: value })
-          .eq("id", id);
-          
+        // Armazenar department e role como metadados do usuário
+        const { error } = await supabase.auth.admin.updateUserById(
+          id,
+          { 
+            user_metadata: { 
+              [field]: value 
+            } 
+          }
+        );
+        
         if (error) throw error;
       } else if (field === 'status') {
-        // Banir/desbanir usuário
-        const isBanned = value === 'inactive';
-        await supabase.auth.admin.updateUserById(
+        // Desabilitar/habilitar usuário usando metadados
+        const { error } = await supabase.auth.admin.updateUserById(
           id,
-          { banned: isBanned }
+          { 
+            user_metadata: { 
+              disabled: value === 'inactive' 
+            } 
+          }
         );
+        
+        if (error) throw error;
       }
       
       toast.success("Usuário atualizado com sucesso");
@@ -168,17 +181,29 @@ const Users = () => {
     try {
       if (userData.id) {
         // Editar usuário existente
-        // Atualizar perfil
+        // Atualizar perfil para o nome
         const { error: profileError } = await supabase
           .from("profiles")
           .update({
-            full_name: userData.name,
-            department: userData.department,
-            role: userData.role
+            full_name: userData.name
           })
           .eq("id", userData.id);
           
         if (profileError) throw profileError;
+        
+        // Atualizar metadados do usuário para department e role
+        const { error: metadataError } = await supabase.auth.admin.updateUserById(
+          userData.id,
+          { 
+            user_metadata: { 
+              department: userData.department,
+              role: userData.role,
+              disabled: userData.status === 'inactive'
+            } 
+          }
+        );
+        
+        if (metadataError) throw metadataError;
         
         // Atualizar senha se fornecida
         if (userData.password) {
@@ -190,13 +215,6 @@ const Users = () => {
           if (authError) throw authError;
         }
         
-        // Banir/desbanir usuário
-        const isBanned = userData.status === 'inactive';
-        await supabase.auth.admin.updateUserById(
-          userData.id,
-          { banned: isBanned }
-        );
-        
         toast.success("Usuário atualizado com sucesso");
       } else {
         // Adicionar novo usuário
@@ -207,21 +225,13 @@ const Users = () => {
           email_confirm: true,
           user_metadata: {
             full_name: userData.name,
+            department: userData.department,
+            role: userData.role,
+            disabled: userData.status === 'inactive'
           }
         });
         
         if (authError) throw authError;
-        
-        // Atualizar perfil com dados adicionais
-        const { error: profileError } = await supabase
-          .from("profiles")
-          .update({
-            department: userData.department,
-            role: userData.role
-          })
-          .eq("id", authData.user.id);
-          
-        if (profileError) throw profileError;
         
         toast.success("Novo usuário criado com sucesso");
       }
