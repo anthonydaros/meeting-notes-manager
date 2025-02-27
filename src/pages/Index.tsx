@@ -3,10 +3,12 @@ import { AppLayout } from "@/components/layout/app-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, Trash2, MessageCircle, ChevronUp, ChevronDown, Plus } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { NotesModal } from "@/components/modals/notes-modal";
 import { DeleteConfirmModal } from "@/components/modals/delete-confirm-modal";
 import { AddPlanModal } from "@/components/modals/add-plan-modal";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import {
   Pagination,
   PaginationContent,
@@ -23,7 +25,7 @@ import {
 } from "@/components/ui/popover";
 
 interface ActionPlan {
-  id: number;
+  id: string;
   dateTime: string;
   department: string;
   action: string;
@@ -34,6 +36,8 @@ interface ActionPlan {
   investment: string;
   status: "complete" | "progress" | "overdue";
   notes?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 type SortConfig = {
@@ -93,58 +97,52 @@ const formatDate = (date: string) => {
   return `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear().toString().slice(2)}`;
 };
 
-const initialData: ActionPlan[] = [
-  {
-    id: 1,
-    dateTime: "2024-03-20 10:00",
-    department: "TI",
-    action: "Atualizar sistemas",
-    solution: "Realizar update de todos os servidores",
-    startDate: "2024-03-21",
-    endDate: "2024-03-25",
-    responsible: "João Silva",
-    investment: "R$ 5.000",
-    status: "progress",
-    notes: "Update será realizado em etapas para minimizar o impacto.",
-  },
-  {
-    id: 2,
-    dateTime: "2024-03-19 14:30",
-    department: "RH",
-    action: "Treinamento de equipe",
-    solution: "Contratar consultoria especializada",
-    startDate: "2024-03-22",
-    endDate: "2024-03-24",
-    responsible: "Maria Santos",
-    investment: "R$ 3.000",
-    status: "complete",
-    notes: "Consultoria já contratada, aguardando início.",
-  },
-  {
-    id: 3,
-    dateTime: "2024-03-18 09:00",
-    department: "Financeiro",
-    action: "Relatório trimestral",
-    solution: "Compilar dados financeiros do Q1",
-    startDate: "2024-03-19",
-    endDate: "2024-03-20",
-    responsible: "Pedro Costa",
-    investment: "N/A",
-    status: "overdue",
-    notes: "Dados do mês de março ainda não disponíveis.",
-  },
-];
-
 const ITEMS_PER_PAGE = 50;
+
+// Mapeamento de campos do banco de dados para campos da interface
+const mapDatabaseToActionPlan = (data: any): ActionPlan => {
+  return {
+    id: data.id,
+    dateTime: data.date_time,
+    department: data.department,
+    action: data.action,
+    solution: data.solution,
+    startDate: data.start_date,
+    endDate: data.end_date,
+    responsible: data.responsible,
+    investment: data.investment,
+    status: data.status as "complete" | "progress" | "overdue",
+    notes: data.notes,
+  };
+};
+
+// Mapeamento de campos da interface para o banco de dados
+const mapActionPlanToDatabase = (data: Partial<ActionPlan>) => {
+  const mappedData: Record<string, any> = {};
+  
+  if (data.dateTime !== undefined) mappedData.date_time = data.dateTime;
+  if (data.department !== undefined) mappedData.department = data.department;
+  if (data.action !== undefined) mappedData.action = data.action;
+  if (data.solution !== undefined) mappedData.solution = data.solution;
+  if (data.startDate !== undefined) mappedData.start_date = data.startDate;
+  if (data.endDate !== undefined) mappedData.end_date = data.endDate;
+  if (data.responsible !== undefined) mappedData.responsible = data.responsible;
+  if (data.investment !== undefined) mappedData.investment = data.investment;
+  if (data.status !== undefined) mappedData.status = data.status;
+  if (data.notes !== undefined) mappedData.notes = data.notes;
+  
+  return mappedData;
+};
 
 const Index = () => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [actionPlans, setActionPlans] = useState<ActionPlan[]>(initialData);
+  const [actionPlans, setActionPlans] = useState<ActionPlan[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [editingCell, setEditingCell] = useState<{
-    id: number;
+    id: string;
     field: keyof ActionPlan;
   } | null>(null);
-  const [selectedPlanId, setSelectedPlanId] = useState<number | null>(null);
+  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -160,46 +158,146 @@ const Index = () => {
     responsible: "",
   });
 
-  const handleAddPlan = (newPlan: Omit<ActionPlan, "id">) => {
-    const newId = Math.max(...actionPlans.map((plan) => plan.id)) + 1;
-    setActionPlans((prev) => [...prev, { ...newPlan, id: newId }]);
+  // Função para buscar planos de ação do Supabase
+  const fetchActionPlans = async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('action_plans')
+        .select('*')
+        .order('date_time', { ascending: false });
+      
+      if (error) {
+        throw error;
+      }
+      
+      const mappedData: ActionPlan[] = data.map(mapDatabaseToActionPlan);
+      setActionPlans(mappedData);
+    } catch (error) {
+      console.error('Erro ao buscar planos de ação:', error);
+      toast.error('Erro ao carregar planos de ação');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleCellEdit = (
-    id: number,
+  useEffect(() => {
+    fetchActionPlans();
+  }, []);
+
+  const handleAddPlan = async (newPlan: Omit<ActionPlan, "id">) => {
+    try {
+      const mappedPlan = mapActionPlanToDatabase(newPlan);
+      
+      const { data, error } = await supabase
+        .from('action_plans')
+        .insert(mappedPlan)
+        .select()
+        .single();
+      
+      if (error) {
+        throw error;
+      }
+      
+      toast.success('Plano de ação adicionado com sucesso');
+      setActionPlans((prev) => [mapDatabaseToActionPlan(data), ...prev]);
+    } catch (error) {
+      console.error('Erro ao adicionar plano de ação:', error);
+      toast.error('Erro ao adicionar plano de ação');
+    }
+    setIsAddModalOpen(false);
+  };
+
+  const handleCellEdit = async (
+    id: string,
     field: keyof ActionPlan,
     value: string
   ) => {
-    setActionPlans((prev) =>
-      prev.map((plan) =>
-        plan.id === id ? { ...plan, [field]: value } : plan
-      )
-    );
+    try {
+      const dataToUpdate: Partial<ActionPlan> = {
+        [field]: value,
+      };
+      
+      const mappedData = mapActionPlanToDatabase(dataToUpdate);
+      
+      const { error } = await supabase
+        .from('action_plans')
+        .update(mappedData)
+        .eq('id', id);
+      
+      if (error) {
+        throw error;
+      }
+      
+      setActionPlans((prev) =>
+        prev.map((plan) =>
+          plan.id === id ? { ...plan, [field]: value } : plan
+        )
+      );
+      
+      toast.success('Plano de ação atualizado');
+    } catch (error) {
+      console.error('Erro ao atualizar plano de ação:', error);
+      toast.error('Erro ao atualizar plano de ação');
+    }
+    
     setEditingCell(null);
   };
 
-  const handleStatusChange = (id: number, newStatus: ActionPlan["status"]) => {
-    setActionPlans((prev) =>
-      prev.map((plan) =>
-        plan.id === id ? { ...plan, status: newStatus } : plan
-      )
-    );
+  const handleStatusChange = async (id: string, newStatus: ActionPlan["status"]) => {
+    try {
+      const { error } = await supabase
+        .from('action_plans')
+        .update({ status: newStatus })
+        .eq('id', id);
+      
+      if (error) {
+        throw error;
+      }
+      
+      setActionPlans((prev) =>
+        prev.map((plan) =>
+          plan.id === id ? { ...plan, status: newStatus } : plan
+        )
+      );
+      
+      toast.success('Status atualizado com sucesso');
+    } catch (error) {
+      console.error('Erro ao atualizar status:', error);
+      toast.error('Erro ao atualizar status');
+    }
   };
 
-  const handleDeletePlan = (id: number) => {
+  const handleDeletePlan = (id: string) => {
     setSelectedPlanId(id);
     setIsDeleteModalOpen(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (selectedPlanId) {
-      setActionPlans((prev) => prev.filter((plan) => plan.id !== selectedPlanId));
+      try {
+        const { error } = await supabase
+          .from('action_plans')
+          .delete()
+          .eq('id', selectedPlanId);
+        
+        if (error) {
+          throw error;
+        }
+        
+        setActionPlans((prev) => prev.filter((plan) => plan.id !== selectedPlanId));
+        toast.success('Plano de ação excluído com sucesso');
+      } catch (error) {
+        console.error('Erro ao excluir plano de ação:', error);
+        toast.error('Erro ao excluir plano de ação');
+      }
+      
       setIsDeleteModalOpen(false);
       setSelectedPlanId(null);
     }
   };
 
-  const handleViewNotes = (id: number) => {
+  const handleViewNotes = (id: string) => {
     setSelectedPlanId(id);
     setIsNotesModalOpen(true);
   };
@@ -340,301 +438,317 @@ const Index = () => {
           />
         </div>
 
-        <div className="table-container">
-          <table className="action-plans-table">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th className="cursor-pointer hover:bg-slate-100" onClick={() => handleSort("dateTime")}>
-                  <div className="flex items-center gap-2">
-                    Data e Hora
-                    {getSortIcon("dateTime")}
-                  </div>
-                </th>
-                <th className="cursor-pointer hover:bg-slate-100" onClick={() => handleSort("department")}>
-                  <div className="flex items-center gap-2">
-                    Setor/Responsável
-                    {getSortIcon("department")}
-                  </div>
-                </th>
-                <th className="cursor-pointer hover:bg-slate-100" onClick={() => handleSort("action")}>
-                  <div className="flex items-center gap-2">
-                    Ação
-                    {getSortIcon("action")}
-                  </div>
-                </th>
-                <th className="cursor-pointer hover:bg-slate-100" onClick={() => handleSort("solution")}>
-                  <div className="flex items-center gap-2">
-                    Solução
-                    {getSortIcon("solution")}
-                  </div>
-                </th>
-                <th className="cursor-pointer hover:bg-slate-100" onClick={() => handleSort("startDate")}>
-                  <div className="flex items-center gap-2">
-                    Início
-                    {getSortIcon("startDate")}
-                  </div>
-                </th>
-                <th className="cursor-pointer hover:bg-slate-100" onClick={() => handleSort("endDate")}>
-                  <div className="flex items-center gap-2">
-                    Término
-                    {getSortIcon("endDate")}
-                  </div>
-                </th>
-                <th className="cursor-pointer hover:bg-slate-100" onClick={() => handleSort("investment")}>
-                  <div className="flex items-center gap-2">
-                    Investimento
-                    {getSortIcon("investment")}
-                  </div>
-                </th>
-                <th>Status</th>
-                <th>Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {paginatedPlans.map((plan) => (
-                <tr key={plan.id}>
-                  <td>{plan.id}</td>
-                  <td
-                    className="editable-cell"
-                    onClick={() =>
-                      setEditingCell({ id: plan.id, field: "dateTime" })
-                    }
-                  >
-                    {editingCell?.id === plan.id &&
-                    editingCell.field === "dateTime" ? (
-                      <input
-                        type="datetime-local"
-                        defaultValue={plan.dateTime}
-                        onBlur={(e) =>
-                          handleCellEdit(plan.id, "dateTime", e.target.value)
-                        }
-                        autoFocus
-                      />
-                    ) : (
-                      formatDateTime(plan.dateTime)
-                    )}
-                  </td>
-                  <td className="editable-cell">
-                    <div className="flex flex-col gap-1">
-                      <div
-                        className="font-medium text-slate-900"
-                        onClick={() =>
-                          setEditingCell({ id: plan.id, field: "department" })
-                        }
-                      >
-                        {editingCell?.id === plan.id &&
-                        editingCell.field === "department" ? (
-                          <input
-                            type="text"
-                            defaultValue={plan.department}
-                            onBlur={(e) =>
-                              handleCellEdit(plan.id, "department", e.target.value)
-                            }
-                            autoFocus
-                          />
-                        ) : (
-                          plan.department
-                        )}
-                      </div>
-                      <div
-                        className="text-sm text-slate-600"
-                        onClick={() =>
-                          setEditingCell({ id: plan.id, field: "responsible" })
-                        }
-                      >
-                        {editingCell?.id === plan.id &&
-                        editingCell.field === "responsible" ? (
-                          <input
-                            type="text"
-                            defaultValue={plan.responsible}
-                            onBlur={(e) =>
-                              handleCellEdit(
-                                plan.id,
-                                "responsible",
-                                e.target.value
-                              )
-                            }
-                            autoFocus
-                          />
-                        ) : (
-                          plan.responsible
-                        )}
-                      </div>
-                    </div>
-                  </td>
-                  <td
-                    className="editable-cell"
-                    onClick={() =>
-                      setEditingCell({ id: plan.id, field: "action" })
-                    }
-                  >
-                    {editingCell?.id === plan.id &&
-                    editingCell.field === "action" ? (
-                      <input
-                        type="text"
-                        defaultValue={plan.action}
-                        onBlur={(e) =>
-                          handleCellEdit(plan.id, "action", e.target.value)
-                        }
-                        autoFocus
-                      />
-                    ) : (
-                      plan.action
-                    )}
-                  </td>
-                  <td
-                    className="editable-cell"
-                    onClick={() =>
-                      setEditingCell({ id: plan.id, field: "solution" })
-                    }
-                  >
-                    {editingCell?.id === plan.id &&
-                    editingCell.field === "solution" ? (
-                      <input
-                        type="text"
-                        defaultValue={plan.solution}
-                        onBlur={(e) =>
-                          handleCellEdit(plan.id, "solution", e.target.value)
-                        }
-                        autoFocus
-                      />
-                    ) : (
-                      plan.solution
-                    )}
-                  </td>
-                  <td
-                    className="editable-cell"
-                    onClick={() =>
-                      setEditingCell({ id: plan.id, field: "startDate" })
-                    }
-                  >
-                    {editingCell?.id === plan.id &&
-                    editingCell.field === "startDate" ? (
-                      <input
-                        type="date"
-                        defaultValue={plan.startDate}
-                        onBlur={(e) =>
-                          handleCellEdit(plan.id, "startDate", e.target.value)
-                        }
-                        autoFocus
-                      />
-                    ) : (
-                      formatDate(plan.startDate)
-                    )}
-                  </td>
-                  <td
-                    className="editable-cell"
-                    onClick={() =>
-                      setEditingCell({ id: plan.id, field: "endDate" })
-                    }
-                  >
-                    {editingCell?.id === plan.id &&
-                    editingCell.field === "endDate" ? (
-                      <input
-                        type="date"
-                        defaultValue={plan.endDate}
-                        onBlur={(e) =>
-                          handleCellEdit(plan.id, "endDate", e.target.value)
-                        }
-                        autoFocus
-                      />
-                    ) : (
-                      formatDate(plan.endDate)
-                    )}
-                  </td>
-                  <td
-                    className="editable-cell"
-                    onClick={() =>
-                      setEditingCell({ id: plan.id, field: "investment" })
-                    }
-                  >
-                    {editingCell?.id === plan.id &&
-                    editingCell.field === "investment" ? (
-                      <input
-                        type="text"
-                        defaultValue={plan.investment}
-                        onBlur={(e) =>
-                          handleCellEdit(plan.id, "investment", e.target.value)
-                        }
-                        autoFocus
-                      />
-                    ) : (
-                      plan.investment
-                    )}
-                  </td>
-                  <td className="text-center">
-                    <StatusPopover
-                      status={plan.status}
-                      onChange={(newStatus) => handleStatusChange(plan.id, newStatus)}
-                    />
-                  </td>
-                  <td>
+        {isLoading ? (
+          <div className="flex justify-center items-center h-40">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+          </div>
+        ) : (
+          <div className="table-container">
+            <table className="action-plans-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th className="cursor-pointer hover:bg-slate-100" onClick={() => handleSort("dateTime")}>
                     <div className="flex items-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        title="Observações"
-                        onClick={() => handleViewNotes(plan.id)}
-                      >
-                        <MessageCircle className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive"
-                        onClick={() => handleDeletePlan(plan.id)}
-                        title="Excluir"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      Data e Hora
+                      {getSortIcon("dateTime")}
                     </div>
-                  </td>
+                  </th>
+                  <th className="cursor-pointer hover:bg-slate-100" onClick={() => handleSort("department")}>
+                    <div className="flex items-center gap-2">
+                      Setor/Responsável
+                      {getSortIcon("department")}
+                    </div>
+                  </th>
+                  <th className="cursor-pointer hover:bg-slate-100" onClick={() => handleSort("action")}>
+                    <div className="flex items-center gap-2">
+                      Ação
+                      {getSortIcon("action")}
+                    </div>
+                  </th>
+                  <th className="cursor-pointer hover:bg-slate-100" onClick={() => handleSort("solution")}>
+                    <div className="flex items-center gap-2">
+                      Solução
+                      {getSortIcon("solution")}
+                    </div>
+                  </th>
+                  <th className="cursor-pointer hover:bg-slate-100" onClick={() => handleSort("startDate")}>
+                    <div className="flex items-center gap-2">
+                      Início
+                      {getSortIcon("startDate")}
+                    </div>
+                  </th>
+                  <th className="cursor-pointer hover:bg-slate-100" onClick={() => handleSort("endDate")}>
+                    <div className="flex items-center gap-2">
+                      Término
+                      {getSortIcon("endDate")}
+                    </div>
+                  </th>
+                  <th className="cursor-pointer hover:bg-slate-100" onClick={() => handleSort("investment")}>
+                    <div className="flex items-center gap-2">
+                      Investimento
+                      {getSortIcon("investment")}
+                    </div>
+                  </th>
+                  <th>Status</th>
+                  <th>Ações</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {paginatedPlans.length > 0 ? (
+                  paginatedPlans.map((plan) => (
+                    <tr key={plan.id}>
+                      <td>{plan.id.substring(0, 5)}</td>
+                      <td
+                        className="editable-cell"
+                        onClick={() =>
+                          setEditingCell({ id: plan.id, field: "dateTime" })
+                        }
+                      >
+                        {editingCell?.id === plan.id &&
+                        editingCell.field === "dateTime" ? (
+                          <input
+                            type="datetime-local"
+                            defaultValue={plan.dateTime}
+                            onBlur={(e) =>
+                              handleCellEdit(plan.id, "dateTime", e.target.value)
+                            }
+                            autoFocus
+                          />
+                        ) : (
+                          formatDateTime(plan.dateTime)
+                        )}
+                      </td>
+                      <td className="editable-cell">
+                        <div className="flex flex-col gap-1">
+                          <div
+                            className="font-medium text-slate-900"
+                            onClick={() =>
+                              setEditingCell({ id: plan.id, field: "department" })
+                            }
+                          >
+                            {editingCell?.id === plan.id &&
+                            editingCell.field === "department" ? (
+                              <input
+                                type="text"
+                                defaultValue={plan.department}
+                                onBlur={(e) =>
+                                  handleCellEdit(plan.id, "department", e.target.value)
+                                }
+                                autoFocus
+                              />
+                            ) : (
+                              plan.department
+                            )}
+                          </div>
+                          <div
+                            className="text-sm text-slate-600"
+                            onClick={() =>
+                              setEditingCell({ id: plan.id, field: "responsible" })
+                            }
+                          >
+                            {editingCell?.id === plan.id &&
+                            editingCell.field === "responsible" ? (
+                              <input
+                                type="text"
+                                defaultValue={plan.responsible}
+                                onBlur={(e) =>
+                                  handleCellEdit(
+                                    plan.id,
+                                    "responsible",
+                                    e.target.value
+                                  )
+                                }
+                                autoFocus
+                              />
+                            ) : (
+                              plan.responsible
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td
+                        className="editable-cell"
+                        onClick={() =>
+                          setEditingCell({ id: plan.id, field: "action" })
+                        }
+                      >
+                        {editingCell?.id === plan.id &&
+                        editingCell.field === "action" ? (
+                          <input
+                            type="text"
+                            defaultValue={plan.action}
+                            onBlur={(e) =>
+                              handleCellEdit(plan.id, "action", e.target.value)
+                            }
+                            autoFocus
+                          />
+                        ) : (
+                          plan.action
+                        )}
+                      </td>
+                      <td
+                        className="editable-cell"
+                        onClick={() =>
+                          setEditingCell({ id: plan.id, field: "solution" })
+                        }
+                      >
+                        {editingCell?.id === plan.id &&
+                        editingCell.field === "solution" ? (
+                          <input
+                            type="text"
+                            defaultValue={plan.solution}
+                            onBlur={(e) =>
+                              handleCellEdit(plan.id, "solution", e.target.value)
+                            }
+                            autoFocus
+                          />
+                        ) : (
+                          plan.solution
+                        )}
+                      </td>
+                      <td
+                        className="editable-cell"
+                        onClick={() =>
+                          setEditingCell({ id: plan.id, field: "startDate" })
+                        }
+                      >
+                        {editingCell?.id === plan.id &&
+                        editingCell.field === "startDate" ? (
+                          <input
+                            type="date"
+                            defaultValue={plan.startDate}
+                            onBlur={(e) =>
+                              handleCellEdit(plan.id, "startDate", e.target.value)
+                            }
+                            autoFocus
+                          />
+                        ) : (
+                          formatDate(plan.startDate)
+                        )}
+                      </td>
+                      <td
+                        className="editable-cell"
+                        onClick={() =>
+                          setEditingCell({ id: plan.id, field: "endDate" })
+                        }
+                      >
+                        {editingCell?.id === plan.id &&
+                        editingCell.field === "endDate" ? (
+                          <input
+                            type="date"
+                            defaultValue={plan.endDate}
+                            onBlur={(e) =>
+                              handleCellEdit(plan.id, "endDate", e.target.value)
+                            }
+                            autoFocus
+                          />
+                        ) : (
+                          formatDate(plan.endDate)
+                        )}
+                      </td>
+                      <td
+                        className="editable-cell"
+                        onClick={() =>
+                          setEditingCell({ id: plan.id, field: "investment" })
+                        }
+                      >
+                        {editingCell?.id === plan.id &&
+                        editingCell.field === "investment" ? (
+                          <input
+                            type="text"
+                            defaultValue={plan.investment}
+                            onBlur={(e) =>
+                              handleCellEdit(plan.id, "investment", e.target.value)
+                            }
+                            autoFocus
+                          />
+                        ) : (
+                          plan.investment
+                        )}
+                      </td>
+                      <td className="text-center">
+                        <StatusPopover
+                          status={plan.status}
+                          onChange={(newStatus) => handleStatusChange(plan.id, newStatus)}
+                        />
+                      </td>
+                      <td>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            title="Observações"
+                            onClick={() => handleViewNotes(plan.id)}
+                          >
+                            <MessageCircle className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive"
+                            onClick={() => handleDeletePlan(plan.id)}
+                            title="Excluir"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={10} className="text-center py-8">
+                      Nenhum plano de ação encontrado
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
 
-        <Pagination>
-          <PaginationContent>
-            <PaginationItem>
-              <PaginationPrevious
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  if (currentPage > 1) setCurrentPage(currentPage - 1);
-                }}
-              />
-            </PaginationItem>
-            
-            {[...Array(totalPages)].map((_, i) => (
-              <PaginationItem key={i + 1}>
-                <PaginationLink
+        {filteredPlans.length > 0 && (
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
                   href="#"
-                  isActive={currentPage === i + 1}
                   onClick={(e) => {
                     e.preventDefault();
-                    setCurrentPage(i + 1);
+                    if (currentPage > 1) setCurrentPage(currentPage - 1);
                   }}
-                >
-                  {i + 1}
-                </PaginationLink>
+                />
               </PaginationItem>
-            ))}
-            
-            <PaginationItem>
-              <PaginationNext
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  if (currentPage < totalPages) setCurrentPage(currentPage + 1);
-                }}
-              />
-            </PaginationItem>
-          </PaginationContent>
-        </Pagination>
+              
+              {[...Array(totalPages)].map((_, i) => (
+                <PaginationItem key={i + 1}>
+                  <PaginationLink
+                    href="#"
+                    isActive={currentPage === i + 1}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setCurrentPage(i + 1);
+                    }}
+                  >
+                    {i + 1}
+                  </PaginationLink>
+                </PaginationItem>
+              ))}
+              
+              <PaginationItem>
+                <PaginationNext
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (currentPage < totalPages) setCurrentPage(currentPage + 1);
+                  }}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        )}
 
         <NotesModal
           isOpen={isNotesModalOpen}

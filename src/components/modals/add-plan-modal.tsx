@@ -23,7 +23,7 @@ interface AddPlanModalProps {
 }
 
 interface ActionPlan {
-  id: number;
+  id: string;
   dateTime: string;
   department: string;
   action: string;
@@ -38,12 +38,12 @@ interface ActionPlan {
 
 export function AddPlanModal({ isOpen, onClose, onAdd }: AddPlanModalProps) {
   const [formData, setFormData] = useState<Omit<ActionPlan, "id">>({
-    dateTime: "",
+    dateTime: new Date().toISOString().slice(0, 16),
     department: "",
     action: "",
     solution: "",
-    startDate: "",
-    endDate: "",
+    startDate: new Date().toISOString().slice(0, 10),
+    endDate: new Date().toISOString().slice(0, 10),
     responsible: "",
     investment: "",
     status: "progress",
@@ -53,7 +53,19 @@ export function AddPlanModal({ isOpen, onClose, onAdd }: AddPlanModalProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onAdd(formData);
-    onClose();
+    // Resetar o formulário para os valores padrão
+    setFormData({
+      dateTime: new Date().toISOString().slice(0, 16),
+      department: "",
+      action: "",
+      solution: "",
+      startDate: new Date().toISOString().slice(0, 10),
+      endDate: new Date().toISOString().slice(0, 10),
+      responsible: "",
+      investment: "",
+      status: "progress",
+      notes: "",
+    });
   };
 
   return (
