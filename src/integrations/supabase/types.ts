@@ -9,7 +9,128 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      action_plans: {
+        Row: {
+          action: string
+          created_at: string
+          date_time: string
+          department: string
+          end_date: string
+          id: string
+          investment: string
+          meeting_id: string | null
+          notes: string | null
+          responsible: string
+          solution: string
+          start_date: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          date_time: string
+          department: string
+          end_date: string
+          id?: string
+          investment: string
+          meeting_id?: string | null
+          notes?: string | null
+          responsible: string
+          solution: string
+          start_date: string
+          status: string
+          updated_at?: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          date_time?: string
+          department?: string
+          end_date?: string
+          id?: string
+          investment?: string
+          meeting_id?: string | null
+          notes?: string | null
+          responsible?: string
+          solution?: string
+          start_date?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "action_plans_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "meetings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meetings: {
+        Row: {
+          created_at: string
+          date: string
+          id: string
+          notes: string | null
+          participants: string
+          time: string
+          topic: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          id?: string
+          notes?: string | null
+          participants: string
+          time: string
+          topic: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: string
+          notes?: string | null
+          participants?: string
+          time?: string
+          topic?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          full_name: string | null
+          id: string
+          updated_at: string
+          username: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          full_name?: string | null
+          id: string
+          updated_at?: string
+          username?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+          username?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
