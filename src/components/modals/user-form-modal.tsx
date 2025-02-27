@@ -153,30 +153,6 @@ export function UserFormModal({ isOpen, onClose, onSave, user, title }: UserForm
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="department">Departamento</Label>
-            <Input
-              id="department"
-              type="text"
-              required
-              value={formData.department}
-              onChange={(e) =>
-                setFormData({ ...formData, department: e.target.value })
-              }
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="role">Cargo</Label>
-            <Input
-              id="role"
-              type="text"
-              required
-              value={formData.role}
-              onChange={(e) =>
-                setFormData({ ...formData, role: e.target.value })
-              }
-            />
-          </div>
-          <div className="space-y-2">
             <Label htmlFor="status">Status</Label>
             <select
               id="status"
