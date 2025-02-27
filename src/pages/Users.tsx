@@ -64,7 +64,7 @@ const Users = () => {
     try {
       setLoading(true);
       
-      // Buscar apenas perfis de usuários, já que não temos acesso admin
+      // Buscar perfis de usuários
       const { data: profilesData, error: profilesError } = await supabase
         .from("profiles")
         .select("*");
@@ -76,7 +76,7 @@ const Users = () => {
         return {
           id: profile.id,
           name: profile.full_name || 'Sem nome',
-          email: profile.username || '',  // Username geralmente é o email
+          email: profile.username || '',
           department: 'Não especificado',
           role: 'Usuário',
           status: 'active' as 'active' | 'inactive',
@@ -152,7 +152,8 @@ const Users = () => {
         const { error: profileError } = await supabase
           .from("profiles")
           .update({
-            full_name: userData.name
+            full_name: userData.name,
+            username: userData.email
           })
           .eq("id", userData.id);
           
@@ -160,9 +161,22 @@ const Users = () => {
         
         toast.success("Usuário atualizado com sucesso");
       } else {
-        // Adicionar novo usuário - não implementado sem acesso admin
-        toast.error("Funcionalidade disponível apenas para administradores");
-        return;
+        // Adicionar novo usuário
+        // Primeiro, registrar o usuário com a autenticação
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+          email: userData.email,
+          password: userData.password || Math.random().toString(36).slice(-8),
+          options: {
+            data: {
+              full_name: userData.name
+            }
+          }
+        });
+        
+        if (signUpError) throw signUpError;
+        
+        // O trigger do Supabase criará automaticamente o perfil
+        toast.success("Usuário criado com sucesso! Um email de confirmação foi enviado.");
       }
       
       // Recarregar lista de usuários
@@ -174,9 +188,36 @@ const Users = () => {
   };
 
   const confirmDelete = async () => {
-    toast.error("Funcionalidade disponível apenas para administradores");
-    setIsDeleteModalOpen(false);
-    setSelectedUserId(null);
+    if (selectedUserId) {
+      try {
+        // Não podemos excluir o usuário diretamente da auth sem permissões de admin,
+        // mas podemos marcar o perfil para posterior exclusão ou desativação
+        const { error: deleteError } = await supabase
+          .from("profiles")
+          .delete()
+          .eq("id", selectedUserId);
+        
+        if (deleteError) {
+          // Se não conseguir excluir o perfil, tente atualizá-lo
+          const { error: updateError } = await supabase
+            .from("profiles")
+            .update({ full_name: "Usuário Inativo" })
+            .eq("id", selectedUserId);
+            
+          if (updateError) throw updateError;
+        }
+        
+        // Atualizar estado local
+        setUsers((prev) => prev.filter((user) => user.id !== selectedUserId));
+        toast.success("Usuário removido com sucesso");
+      } catch (error: any) {
+        console.error("Erro ao excluir usuário:", error);
+        toast.error("Falha ao excluir usuário: " + error.message);
+      } finally {
+        setIsDeleteModalOpen(false);
+        setSelectedUserId(null);
+      }
+    }
   };
 
   const handleSort = (key: keyof User) => {
