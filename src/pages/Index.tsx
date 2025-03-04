@@ -1,4 +1,3 @@
-
 import { AppLayout } from "@/components/layout/app-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -125,9 +124,8 @@ const mapDatabaseToActionPlan = (data: any): ActionPlan => {
   };
 };
 
-const mapActionPlanToDatabase = (data: Partial<ActionPlan>) => {
-  // This function handles field conversion and also ensures we don't send empty strings for datetime fields
-  const result = {
+const mapActionPlanToDatabase = (data: Partial<ActionPlan>, isInsert = false) => {
+  const result: any = {
     action: data.action || '',
     department: data.department || '',
     investment: data.investment || '',
@@ -137,17 +135,22 @@ const mapActionPlanToDatabase = (data: Partial<ActionPlan>) => {
     notes: data.notes
   };
   
-  // Handle timestamp and date fields carefully to avoid sending empty strings
-  if (data.dateTime) {
-    result['date_time'] = data.dateTime;
-  }
-  
-  if (data.startDate) {
-    result['start_date'] = data.startDate;
-  }
-  
-  if (data.endDate) {
-    result['end_date'] = data.endDate;
+  if (isInsert) {
+    result.date_time = data.dateTime || new Date().toISOString();
+    result.start_date = data.startDate || new Date().toISOString().split('T')[0];
+    result.end_date = data.endDate || new Date().toISOString().split('T')[0];
+  } else {
+    if (data.dateTime) {
+      result.date_time = data.dateTime;
+    }
+    
+    if (data.startDate) {
+      result.start_date = data.startDate;
+    }
+    
+    if (data.endDate) {
+      result.end_date = data.endDate;
+    }
   }
   
   return result;
@@ -282,7 +285,7 @@ const Index = () => {
 
   const handleAddPlan = async (newPlan: Omit<ActionPlan, "id">) => {
     try {
-      const mappedPlan = mapActionPlanToDatabase(newPlan);
+      const mappedPlan = mapActionPlanToDatabase(newPlan, true);
       
       console.log("Enviando para o banco:", mappedPlan);
       
@@ -314,7 +317,6 @@ const Index = () => {
     value: string
   ) => {
     try {
-      // Skip update if value is empty for date or datetime fields
       if ((field === 'dateTime' || field === 'startDate' || field === 'endDate') && value === '') {
         console.log(`Skipping update for empty ${field} value`);
         toast.warning(`Campo ${field} não pode ficar vazio`);
