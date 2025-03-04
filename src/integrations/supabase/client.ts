@@ -12,13 +12,19 @@ console.log("Creating Supabase client with URL:", SUPABASE_URL);
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+  }
+});
 
 // Make a simple call to verify the client is working
 supabase.auth.getSession().then(({ data, error }) => {
   if (error) {
     console.error("Error initializing Supabase client:", error);
   } else {
-    console.log("Supabase client initialized successfully");
+    console.log("Supabase client initialized successfully", data.session ? "User is logged in" : "No active session");
   }
 });
