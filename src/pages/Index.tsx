@@ -1,3 +1,4 @@
+
 import { AppLayout } from "@/components/layout/app-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -125,18 +126,31 @@ const mapDatabaseToActionPlan = (data: any): ActionPlan => {
 };
 
 const mapActionPlanToDatabase = (data: Partial<ActionPlan>) => {
-  return {
+  // This function handles field conversion and also ensures we don't send empty strings for datetime fields
+  const result = {
     action: data.action || '',
-    date_time: data.dateTime || '',
     department: data.department || '',
-    end_date: data.endDate || '',
     investment: data.investment || '',
     responsible: data.responsible || '',
     solution: data.solution || '',
-    start_date: data.startDate || '',
     status: data.status || 'progress',
     notes: data.notes
   };
+  
+  // Handle timestamp and date fields carefully to avoid sending empty strings
+  if (data.dateTime) {
+    result['date_time'] = data.dateTime;
+  }
+  
+  if (data.startDate) {
+    result['start_date'] = data.startDate;
+  }
+  
+  if (data.endDate) {
+    result['end_date'] = data.endDate;
+  }
+  
+  return result;
 };
 
 const getStatusLabel = (status: ActionPlan["status"]) => {
@@ -300,6 +314,14 @@ const Index = () => {
     value: string
   ) => {
     try {
+      // Skip update if value is empty for date or datetime fields
+      if ((field === 'dateTime' || field === 'startDate' || field === 'endDate') && value === '') {
+        console.log(`Skipping update for empty ${field} value`);
+        toast.warning(`Campo ${field} não pode ficar vazio`);
+        setEditingCell(null);
+        return;
+      }
+      
       const dataToUpdate: Partial<ActionPlan> = {
         [field]: value,
       };
