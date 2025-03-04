@@ -1,4 +1,3 @@
-
 import { AppLayout } from "@/components/layout/app-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -126,20 +125,18 @@ const mapDatabaseToActionPlan = (data: any): ActionPlan => {
 };
 
 const mapActionPlanToDatabase = (data: Partial<ActionPlan>) => {
-  const mappedData: Record<string, any> = {};
-  
-  if (data.dateTime !== undefined) mappedData.date_time = data.dateTime;
-  if (data.department !== undefined) mappedData.department = data.department;
-  if (data.action !== undefined) mappedData.action = data.action;
-  if (data.solution !== undefined) mappedData.solution = data.solution;
-  if (data.startDate !== undefined) mappedData.start_date = data.startDate;
-  if (data.endDate !== undefined) mappedData.end_date = data.endDate;
-  if (data.responsible !== undefined) mappedData.responsible = data.responsible;
-  if (data.investment !== undefined) mappedData.investment = data.investment;
-  if (data.status !== undefined) mappedData.status = data.status;
-  if (data.notes !== undefined) mappedData.notes = data.notes;
-  
-  return mappedData;
+  return {
+    action: data.action || '',
+    date_time: data.dateTime || '',
+    department: data.department || '',
+    end_date: data.endDate || '',
+    investment: data.investment || '',
+    responsible: data.responsible || '',
+    solution: data.solution || '',
+    start_date: data.startDate || '',
+    status: data.status || 'progress',
+    notes: data.notes
+  };
 };
 
 const getStatusLabel = (status: ActionPlan["status"]) => {
@@ -210,7 +207,6 @@ const Index = () => {
     }
   };
 
-  // Função para exportar dados como CSV
   const exportToCSV = () => {
     try {
       if (actionPlans.length === 0) {
@@ -218,7 +214,6 @@ const Index = () => {
         return;
       }
 
-      // Criar cabeçalho do CSV
       const headers = [
         'ID', 
         'Data e Hora', 
@@ -232,7 +227,6 @@ const Index = () => {
         'Status'
       ];
 
-      // Transformar dados para formato CSV
       const csvData = filteredPlans.map(plan => [
         plan.id.substring(0, 5),
         formatDateTime(plan.dateTime),
@@ -246,13 +240,11 @@ const Index = () => {
         getStatusLabel(plan.status)
       ]);
 
-      // Combinar cabeçalho e dados
       const csvContent = [
         headers.join(','),
         ...csvData.map(row => row.join(','))
       ].join('\n');
 
-      // Criar blob e link para download
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
