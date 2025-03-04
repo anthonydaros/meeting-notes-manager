@@ -12,14 +12,19 @@ import { Toaster } from "sonner";
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
 
+  console.log("ProtectedRoute - Auth state:", { user: !!user, loading });
+
   if (loading) {
+    console.log("ProtectedRoute - Still loading auth state");
     return <div>Carregando...</div>;
   }
 
   if (!user) {
+    console.log("ProtectedRoute - No user, redirecting to login");
     return <Navigate to="/login" />;
   }
 
+  console.log("ProtectedRoute - User authenticated, rendering content");
   return <>{children}</>;
 };
 
@@ -27,14 +32,19 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 const PublicRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
 
+  console.log("PublicRoute - Auth state:", { user: !!user, loading });
+
   if (loading) {
+    console.log("PublicRoute - Still loading auth state");
     return <div>Carregando...</div>;
   }
 
   if (user) {
+    console.log("PublicRoute - User logged in, redirecting to home");
     return <Navigate to="/" />;
   }
 
+  console.log("PublicRoute - No user, rendering public content");
   return <>{children}</>;
 };
 
@@ -79,6 +89,7 @@ const AppRoutes = () => {
 };
 
 function App() {
+  console.log("App component rendering");
   return (
     <BrowserRouter>
       <AuthProvider>

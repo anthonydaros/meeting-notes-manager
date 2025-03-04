@@ -39,6 +39,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchUserProfile = async (userId: string) => {
     try {
+      console.log("Fetching user profile for userId:", userId);
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
@@ -50,6 +51,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return null;
       }
 
+      console.log("Profile data retrieved:", data);
       return data;
     } catch (error) {
       console.error("Erro ao buscar perfil do usuário:", error);
@@ -60,19 +62,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const setupSession = async () => {
       try {
+        console.log("Setting up auth session...");
         // Verificar se já temos uma sessão ativa
         const { data } = await supabase.auth.getSession();
+        console.log("Current session data:", data);
+        
         setSession(data.session);
         setUser(data.session?.user || null);
 
         // Buscar perfil do usuário se estiver logado
         if (data.session?.user) {
+          console.log("User is logged in, fetching profile");
           const profileData = await fetchUserProfile(data.session.user.id);
           setProfile(profileData);
+        } else {
+          console.log("No active session found");
         }
       } catch (error) {
         console.error("Erro ao verificar sessão:", error);
       } finally {
+        console.log("Auth loading complete");
         setLoading(false);
       }
     };
@@ -82,6 +91,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Definir ouvintes para mudanças na autenticação
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log("Auth state changed:", event);
         setSession(session);
         setUser(session?.user || null);
         
@@ -104,15 +114,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signIn = async (email: string, password: string) => {
     try {
+      console.log("Attempting sign in for:", email);
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) {
+        console.error("Login error:", error);
         throw error;
       }
 
+      console.log("Sign in successful:", data);
       if (data.user) {
         const profileData = await fetchUserProfile(data.user.id);
         setProfile(profileData);
@@ -127,8 +140,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signOut = async () => {
     try {
+      console.log("Signing out...");
       await supabase.auth.signOut();
       setProfile(null);
+      console.log("Sign out complete");
     } catch (error) {
       console.error("Erro ao fazer logout:", error);
     }
