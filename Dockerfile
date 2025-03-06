@@ -1,6 +1,5 @@
-
 # Use Node.js as base image
-FROM node:20-alpine as build
+FROM node:20-alpine AS build
 
 # Set working directory
 WORKDIR /app
@@ -8,8 +7,8 @@ WORKDIR /app
 # Copy package.json and package-lock.json
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci
+# Install dependencies with legacy peer deps
+RUN npm ci --legacy-peer-deps
 
 # Copy all files
 COPY . .
@@ -18,7 +17,7 @@ COPY . .
 RUN npm run build
 
 # Production stage
-FROM nginx:stable-alpine as production
+FROM nginx:stable-alpine AS production
 
 # Copy built app from build stage
 COPY --from=build /app/dist /usr/share/nginx/html
