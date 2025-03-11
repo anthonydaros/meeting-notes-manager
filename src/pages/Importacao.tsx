@@ -62,11 +62,13 @@ const Importacao = () => {
         throw new Error("Usuário não autenticado");
       }
 
-      console.log("Iniciando salvamento dos planos de ação...");
+      const userId = session.session.user.id;
+      console.log("Iniciando salvamento dos planos de ação para o usuário:", userId);
 
       // Processar um plano de ação por vez para melhor tratamento de erro
       for (const task of extractedTasks) {
         console.log("Salvando plano de ação:", {
+          user_id: userId,
           date_time: new Date(task.dateTime).toISOString(),
           department: task.sector,
           responsible: task.assignee,
@@ -81,6 +83,7 @@ const Importacao = () => {
         const { data, error } = await supabase
           .from("action_plans")
           .insert({
+            user_id: userId,
             date_time: new Date(task.dateTime).toISOString(),
             department: task.sector,
             responsible: task.assignee,
