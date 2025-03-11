@@ -9,49 +9,63 @@ if (!GEMINI_API_KEY) {
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
 export interface Task {
-  title: string;
-  description: string;
-  assignee?: string;
-  dueDate?: string;
-  priority?: "low" | "medium" | "high";
-  status?: "todo" | "in_progress" | "done";
+  dateTime: string;
+  sector: string;
+  assignee: string;
+  investment: string;
+  action: string;
+  solution: string;
+  startDate: string;
+  endDate: string;
+  status: "progress" | "complete" | "overdue";
+  observations?: string;
 }
 
 export async function extractTasksFromText(text: string): Promise<Task[]> {
   try {
-    // Usar o modelo gemini-2.0-flash para melhor performance
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
     const prompt = `
-      Você é um assistente especializado em extrair tarefas de atas de reunião.
-      Analise o texto abaixo que é um resumo de reunião e extraia as tarefas mencionadas.
+      Você é um assistente especializado em extrair planos de ação de atas de reunião.
+      Analise o texto abaixo que é um resumo de reunião e extraia os planos de ação mencionados.
       
-      Para cada tarefa, identifique:
-      - Título: Um título curto e descritivo da tarefa
-      - Descrição: Uma descrição detalhada do que precisa ser feito
-      - Responsável: Nome da pessoa responsável (se mencionado)
-      - Data de entrega: Data limite no formato YYYY-MM-DD (se mencionada)
-      - Prioridade: "low", "medium" ou "high" (baseado no contexto e urgência)
-      - Status: "todo" para novas tarefas, "in_progress" para tarefas já iniciadas, "done" para tarefas concluídas
+      Para cada plano de ação, identifique:
+      - Data e Hora: Data e hora da criação no formato YYYY-MM-DD HH:mm
+      - Setor: Setor responsável
+      - Responsável: Nome da pessoa responsável
+      - Investimento: Valor do investimento necessário (se mencionado)
+      - Ação: Descrição da ação a ser tomada
+      - Solução: Solução proposta
+      - Início: Data de início no formato YYYY-MM-DD
+      - Término: Data de término no formato YYYY-MM-DD
+      - Status: Status atual ("progress" para em andamento, "complete" para concluído, "overdue" para atrasado)
+      - Observações: Observações adicionais (opcional)
 
-      Retorne apenas um array JSON com as tarefas identificadas, seguindo exatamente este formato:
+      Retorne apenas um array JSON com os planos de ação identificados, seguindo exatamente este formato:
       [
         {
-          "title": "string",
-          "description": "string",
-          "assignee": "string" (opcional),
-          "dueDate": "YYYY-MM-DD" (opcional),
-          "priority": "low" | "medium" | "high" (opcional),
-          "status": "todo" | "in_progress" | "done" (opcional)
+          "dateTime": "YYYY-MM-DD HH:mm",
+          "sector": "string",
+          "assignee": "string",
+          "investment": "string",
+          "action": "string",
+          "solution": "string",
+          "startDate": "YYYY-MM-DD",
+          "endDate": "YYYY-MM-DD",
+          "status": "progress" | "complete" | "overdue",
+          "observations": "string" (opcional)
         }
       ]
 
       Importante:
-      - Mantenha o título curto e objetivo
-      - A descrição deve ser mais detalhada
-      - Use as datas mencionadas no texto
-      - Atribua prioridades baseadas na urgência e importância mencionadas
-      - Defina o status com base no contexto (se já foi iniciado ou não)
+      - Use o formato de data e hora especificado
+      - Extraia o setor do contexto quando possível
+      - O investimento deve incluir a moeda quando mencionado
+      - A ação deve ser clara e objetiva
+      - A solução deve detalhar como a ação será executada
+      - Use as datas mencionadas no texto para início e término
+      - O status deve ser um dos três valores: "progress", "complete", "overdue"
+      - Inclua observações relevantes quando disponíveis
 
       Texto da reunião:
       ${text}
@@ -62,7 +76,6 @@ export async function extractTasksFromText(text: string): Promise<Task[]> {
     const textResponse = response.text();
     
     try {
-      // Tenta encontrar o array JSON na resposta
       const jsonMatch = textResponse.match(/\[[\s\S]*\]/);
       if (!jsonMatch) {
         throw new Error("No JSON array found in response");
@@ -70,23 +83,57 @@ export async function extractTasksFromText(text: string): Promise<Task[]> {
       
       const tasks = JSON.parse(jsonMatch[0]) as Task[];
       
-      // Validar e formatar as tarefas
-      const validatedTasks = tasks.map(task => ({
-        ...task,
-        // Garantir que todos os campos obrigatórios existam
-        title: task.title || "Sem título",
-        description: task.description || "Sem descrição",
-        // Validar e formatar a data se existir
-        dueDate: task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : undefined,
-        // Validar prioridade
-        priority: task.priority && ["low", "medium", "high"].includes(task.priority) 
-          ? task.priority as "low" | "medium" | "high"
-          : undefined,
-        // Validar status
-        status: task.status && ["todo", "in_progress", "done"].includes(task.status)
-          ? task.status as "todo" | "in_progress" | "done"
-          : "todo"
-      }));
+      const validatedTasks = tasks.map(task => {
+        // Função auxiliar para validar e formatar data
+        const validateDate = (dateStr: string, defaultDate = new Date()) => {
+          try {
+            const date = new Date(dateStr);
+            if (isNaN(date.getTime())) {
+              return defaultDate;
+            }
+            return date;
+          } catch {
+            return defaultDate;
+          }
+        };
+
+        // Validar e formatar a data e hora atual
+        const now = new Date();
+        const dateTime = validateDate(task.dateTime, now);
+        const startDate = validateDate(task.startDate, now);
+        const endDate = validateDate(task.endDate, now);
+
+        // Mapear status antigos para os novos
+        const mapStatus = (status: string): "progress" | "complete" | "overdue" => {
+          switch (status.toLowerCase()) {
+            case "em andamento":
+            case "a fazer":
+            case "progress":
+              return "progress";
+            case "concluído":
+            case "complete":
+              return "complete";
+            case "atrasado":
+            case "overdue":
+              return "overdue";
+            default:
+              return "progress";
+          }
+        };
+
+        return {
+          dateTime: dateTime.toISOString(),
+          sector: task.sector || "Não especificado",
+          assignee: task.assignee || "Não especificado",
+          investment: task.investment || "Não especificado",
+          action: task.action || "Não especificado",
+          solution: task.solution || "Não especificado",
+          startDate: startDate.toISOString().split('T')[0],
+          endDate: endDate.toISOString().split('T')[0],
+          status: mapStatus(task.status),
+          observations: task.observations
+        };
+      });
 
       return validatedTasks;
     } catch (parseError) {

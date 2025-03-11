@@ -14,35 +14,25 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-
-const priorityColors = {
-  low: "bg-blue-100 text-blue-800",
-  medium: "bg-yellow-100 text-yellow-800",
-  high: "bg-red-100 text-red-800",
-};
+import { supabase } from "@/integrations/supabase/client";
 
 const statusColors = {
-  todo: "bg-gray-100 text-gray-800",
-  in_progress: "bg-blue-100 text-blue-800",
-  done: "bg-green-100 text-green-800",
+  "progress": "bg-blue-100 text-blue-800",
+  "complete": "bg-green-100 text-green-800",
+  "overdue": "bg-red-100 text-red-800",
 };
 
 const statusLabels = {
-  todo: "A Fazer",
-  in_progress: "Em Andamento",
-  done: "Concluído",
-};
-
-const priorityLabels = {
-  low: "Baixa",
-  medium: "Média",
-  high: "Alta",
+  "progress": "Em Andamento",
+  "complete": "Concluído",
+  "overdue": "Atrasado",
 };
 
 const Importacao = () => {
   const [text, setText] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [extractedTasks, setExtractedTasks] = useState<Task[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
 
   const handleImport = async () => {
     if (!text.trim()) {
@@ -55,12 +45,81 @@ const Importacao = () => {
     try {
       const tasks = await extractTasksFromText(text);
       setExtractedTasks(tasks);
-      toast.success("Tarefas extraídas com sucesso!");
+      toast.success("Planos de ação extraídos com sucesso!");
     } catch (error) {
       console.error("Erro ao processar texto:", error);
       toast.error("Erro ao processar o texto. Por favor, tente novamente.");
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const handleSaveTasks = async () => {
+    setIsSaving(true);
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session?.session) {
+        throw new Error("Usuário não autenticado");
+      }
+
+      console.log("Iniciando salvamento dos planos de ação...");
+
+      // Processar um plano de ação por vez para melhor tratamento de erro
+      for (const task of extractedTasks) {
+        console.log("Salvando plano de ação:", {
+          date_time: new Date(task.dateTime).toISOString(),
+          department: task.sector,
+          responsible: task.assignee,
+          investment: task.investment,
+          action: task.action,
+          solution: task.solution,
+          start_date: new Date(task.startDate).toISOString().split('T')[0],
+          end_date: new Date(task.endDate).toISOString().split('T')[0],
+          status: task.status
+        });
+
+        const { data, error } = await supabase
+          .from("action_plans")
+          .insert({
+            date_time: new Date(task.dateTime).toISOString(),
+            department: task.sector,
+            responsible: task.assignee,
+            investment: task.investment,
+            action: task.action,
+            solution: task.solution,
+            start_date: new Date(task.startDate).toISOString().split('T')[0],
+            end_date: new Date(task.endDate).toISOString().split('T')[0],
+            status: task.status,
+            notes: task.observations || null
+          })
+          .select()
+          .single();
+
+        if (error) {
+          console.error("Erro detalhado do Supabase:", {
+            code: error.code,
+            message: error.message,
+            details: error.details,
+            hint: error.hint
+          });
+          throw new Error(`Erro ao salvar plano de ação: ${error.message}`);
+        }
+
+        console.log("Plano de ação salvo com sucesso:", data);
+      }
+      
+      toast.success("Planos de ação salvos com sucesso!");
+      setExtractedTasks([]);
+      setText("");
+    } catch (error) {
+      console.error("Erro ao salvar planos de ação:", error);
+      if (error instanceof Error) {
+        toast.error(error.message);
+      } else {
+        toast.error("Erro ao salvar os planos de ação. Por favor, tente novamente.");
+      }
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -107,70 +166,85 @@ const Importacao = () => {
         {extractedTasks.length > 0 && (
           <div className="bg-white rounded-lg shadow-sm p-6 space-y-4">
             <h3 className="text-lg font-medium">Tarefas Extraídas</h3>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Título</TableHead>
-                  <TableHead>Descrição</TableHead>
-                  <TableHead>Responsável</TableHead>
-                  <TableHead>Data de Entrega</TableHead>
-                  <TableHead>Prioridade</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {extractedTasks.map((task, index) => (
-                  <TableRow key={index}>
-                    <TableCell className="font-medium">{task.title}</TableCell>
-                    <TableCell>{task.description}</TableCell>
-                    <TableCell>{task.assignee || "-"}</TableCell>
-                    <TableCell>
-                      {task.dueDate
-                        ? format(new Date(task.dueDate), "dd 'de' MMMM 'de' yyyy", {
-                            locale: ptBR,
-                          })
-                        : "-"}
-                    </TableCell>
-                    <TableCell>
-                      {task.priority && (
-                        <Badge
-                          className={priorityColors[task.priority]}
-                          variant="secondary"
-                        >
-                          {priorityLabels[task.priority]}
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {task.status && (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Data e Hora</TableHead>
+                    <TableHead>Setor/Responsável</TableHead>
+                    <TableHead>Ação</TableHead>
+                    <TableHead>Solução</TableHead>
+                    <TableHead>Início</TableHead>
+                    <TableHead>Término</TableHead>
+                    <TableHead>Investimento</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {extractedTasks.map((task, index) => (
+                    <TableRow key={index}>
+                      <TableCell>
+                        {format(new Date(task.dateTime), "dd/MM/yyyy HH:mm")}
+                      </TableCell>
+                      <TableCell>
+                        {task.sector}<br />
+                        <span className="text-sm text-gray-500">{task.assignee}</span>
+                      </TableCell>
+                      <TableCell>{task.action}</TableCell>
+                      <TableCell>{task.solution}</TableCell>
+                      <TableCell>
+                        {format(new Date(task.startDate), "dd/MM/yyyy")}
+                      </TableCell>
+                      <TableCell>
+                        {format(new Date(task.endDate), "dd/MM/yyyy")}
+                      </TableCell>
+                      <TableCell>{task.investment}</TableCell>
+                      <TableCell>
                         <Badge
                           className={statusColors[task.status]}
                           variant="secondary"
                         >
                           {statusLabels[task.status]}
                         </Badge>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          onClick={() => {
+                            const newTasks = [...extractedTasks];
+                            newTasks.splice(index, 1);
+                            setExtractedTasks(newTasks);
+                          }}
+                        >
+                          <span className="sr-only">Remover</span>
+                          ×
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
 
             <div className="flex justify-end space-x-2">
               <Button
                 variant="outline"
-                onClick={() => setExtractedTasks([])}
+                onClick={() => {
+                  setExtractedTasks([]);
+                  setText("");
+                }}
               >
                 Limpar
               </Button>
               <Button
                 className="bg-[#333333] text-white hover:bg-[#222222]"
-                onClick={() => {
-                  // TODO: Implementar salvamento das tarefas
-                  toast.success("Tarefas salvas com sucesso!");
-                }}
+                onClick={handleSaveTasks}
+                disabled={isSaving}
               >
-                Salvar Tarefas
+                {isSaving ? "Salvando..." : "Confirmar Importação"}
               </Button>
             </div>
           </div>
@@ -189,7 +263,7 @@ const Importacao = () => {
               3. A IA identificará automaticamente os planos de ação, responsáveis, prazos e outros detalhes relevantes.
             </p>
             <p>
-              4. Revise as tarefas extraídas e clique em "Salvar Tarefas" para adicioná-las ao sistema.
+              4. Revise os planos de ação extraídos e clique em "Confirmar Importação" para adicioná-los ao sistema.
             </p>
             <p className="text-gray-500 italic">
               Nota: A precisão da extração depende da clareza das informações no texto original.
